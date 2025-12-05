@@ -12,31 +12,41 @@ Minimal HTTP wrapper around the OpenAI Agents setup in `app/agent_cli_mcp.py` wi
 ## Requirements
 - Python 3.10+ (project uses `pyproject.toml`) download here: https://www.python.org/downloads/
 - `uv tools` run this in powershell :'powershell -c "irm https://astral.sh/uv/install.ps1 | iex"'
-- Set `OPENAI_API_KEY` and other env vars (see below)
 - Install NPM using 'npm install -g npm' in powershell
-- Install Docker here: https://www.docker.com/
+- Install Docker here: https://www.docker.com/ and follow the 4 steps shown here
+  -docker pull node:24-alpine
+  -docker run -it --rm --entrypoint sh node:24-alpine
+  -node -v # Should print "v24.11.1".
+  -npm -v # Should print "11.6.2".
 
 ## Quick start (using `uv`)
 0. Clone this Repository
 1. Create a virtual env (optional):
    - `uv venv`
    - Activate: `. .venv/bin/activate` (Linux/macOS) or `.venv\Scripts\Activate.ps1` (Windows PowerShell)
-2. Install deps:
-   - `uv sync`
+2. run this in the standard folder in powershell or cmd: npx -y @modelcontextprotocol/server-filesystem 
 3. Configure environment:
-   - Create `.env` file with required variables (see below)
+   - Create 2 new folders sample_files & data (see example below)
    - Set your `OPENAI_API_KEY`
    - Set `MCP_FS_ROOTS` example: C:\Users\name\...\BioT_Speech_IoT_LLM_App\sample_files
    - Set `SQLITE_DB_PATH` example: C:\Users\name\...\BioT_Speech_IoT_LLM_App\data\database.db
-   - Create a new folder 
-4. Run the server locally:
-   - Loopback only: `uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001`
-   - Bind all interfaces: `uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8001`
-   - Specify LAN IP: `uv run uvicorn app.main:app --host 192.168.1.50 --port 8001`
+4. Open the folder "rag" and open both .py files on your local texteditor (vscode).
 
-Production setup:
-- Multiple workers: `uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --workers 4`
-  - Note: each worker is a separate process. Share cross-process state using DB/Redis/etc.
+In file 'upload_file.py' change the last line to the right pdf's path located in the same folder.
+(example: "C:\Users\admin\...\Desktop\Integrationsprojekt IoT\BioT_Speech_IoT_LLM_App\rag\BioT_Iot_AppKonzept_c2q3.pdf")
+
+Open powershell in the same folder and run following command: uv run python .\upload_file.py
+You will now recieve a new FileId as a response. Copy the FileId and replace the old FildId with the newly generated one in the 'upload_file.py' document.
+
+In file 'create_vector_store.py' paste the just generated FileId in line 39
+
+Open powershell in the same folder and run following command: uv run python .\create_vector_store.py
+You will recieve your own vector store id. Open 'agent_cli_mcp' in folder app with your texteditor and replace the vectorstoreid in line 126 with the newly generated one.
+
+5. Run the server locally:
+   - uv run python .\mcp_server\dice_and_sport.py
+   - uv run python .\app\agent_cli_mcp.py   
+
 
 ## Endpoints
 - `GET /health` → `{ "status": "ok" }`
