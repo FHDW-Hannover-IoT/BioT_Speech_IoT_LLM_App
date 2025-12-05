@@ -31,17 +31,13 @@ Minimal HTTP wrapper around the OpenAI Agents setup in `app/agent_cli_mcp.py` wi
    - Set `MCP_FS_ROOTS` example: C:\Users\name\...\BioT_Speech_IoT_LLM_App\sample_files
    - Set `SQLITE_DB_PATH` example: C:\Users\name\...\BioT_Speech_IoT_LLM_App\data\database.db
 4. Open the folder "rag" and open both .py files on your local texteditor (vscode).
-
--In file 'upload_file.py' change the last line to the right pdf's path located in the same folder.
--(example: "C:\Users\admin\...\Desktop\Integrationsprojekt IoT\BioT_Speech_IoT_LLM_App\rag\BioT_Iot_AppKonzept_c2q3.pdf")
-
--Open powershell in the same folder and run following command: uv run python .\upload_file.py
--You will now recieve a new FileId as a response. Copy the FileId and replace the old FildId with the newly generated one in the 'upload_file.py' document.
-
--In file 'create_vector_store.py' paste the just generated FileId in line 39
-
--Open powershell in the same folder and run following command: uv run python .\create_vector_store.py
--You will recieve your own vector store id. Open 'agent_cli_mcp' in folder app with your texteditor and replace the vectorstoreid in line 126 with the newly generated one.
+  - In file 'upload_file.py' change the last line to the right pdf's path located in the same folder.
+  - (example: "C:\Users\admin\...\Desktop\Integrationsprojekt IoT\BioT_Speech_IoT_LLM_App\rag\BioT_Iot_AppKonzept_c2q3.pdf")
+  - Open powershell in the same folder and run following command: uv run python .\upload_file.py
+  - You will now recieve a new FileId as a response. Copy the FileId and replace the old FildId with the newly generated one in the 'upload_file.py' document.
+  - In file 'create_vector_store.py' paste the just generated FileId in line 39
+  - Open powershell in the same folder and run following command: uv run python .\create_vector_store.py
+  - You will recieve your own vector store id. Open 'agent_cli_mcp' in folder app with your texteditor and replace the vectorstoreid in line 126 with the newly generated one.
 
 5. Run the server locally:
    - uv run python .\mcp_server\dice_and_sport.py
