@@ -10,11 +10,14 @@ Minimal HTTP wrapper around the OpenAI Agents setup in `app/agent_cli_mcp.py` wi
 - Configurable via environment variables.
 
 ## Requirements
-- Python 3.10+ (project uses `pyproject.toml`)
-- `uv` (uv tools) or `uvicorn`
+- Python 3.10+ (project uses `pyproject.toml`) download here: https://www.python.org/downloads/
+- `uv tools` run this in powershell :'powershell -c "irm https://astral.sh/uv/install.ps1 | iex"'
 - Set `OPENAI_API_KEY` and other env vars (see below)
+- Install NPM using 'npm install -g npm' in powershell
+- Install Docker here: https://www.docker.com/
 
 ## Quick start (using `uv`)
+0. Clone this Repository
 1. Create a virtual env (optional):
    - `uv venv`
    - Activate: `. .venv/bin/activate` (Linux/macOS) or `.venv\Scripts\Activate.ps1` (Windows PowerShell)
@@ -22,7 +25,10 @@ Minimal HTTP wrapper around the OpenAI Agents setup in `app/agent_cli_mcp.py` wi
    - `uv sync`
 3. Configure environment:
    - Create `.env` file with required variables (see below)
-   - Set at least `OPENAI_API_KEY`
+   - Set your `OPENAI_API_KEY`
+   - Set `MCP_FS_ROOTS` example: C:\Users\name\...\BioT_Speech_IoT_LLM_App\sample_files
+   - Set `SQLITE_DB_PATH` example: C:\Users\name\...\BioT_Speech_IoT_LLM_App\data\database.db
+   - Create a new folder 
 4. Run the server locally:
    - Loopback only: `uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001`
    - Bind all interfaces: `uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8001`
