@@ -7,10 +7,6 @@ Endpoints:
     GET  /health  — liveness check, returns {"status": "ok"}
     POST /chat    — send a message, receive a reply from the agent
 
-The SensorAgent is instantiated once during application startup via the
-lifespan context and injected into each request via FastAPI's Depends().
-No secrets are ever stored in request/response objects.
-
 Run with:
     uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 """
@@ -19,28 +15,31 @@ import sys
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.agent import SensorAgent
+from app.logger import get_logger
 from config.settings import settings
 
+log = get_logger(__name__)
+
+
+# ── Request / Response models ─────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
-    """Incoming chat request body."""
     message: str
 
 
 class ChatResponse(BaseModel):
-    """Outgoing chat response body."""
     reply: str
 
 
+# ── Agent factory ─────────────────────────────────────────────────────────────
+
 def _create_agent() -> SensorAgent:
-    """
-    Factory — builds SensorAgent from validated settings.
-    Called once at startup. All secrets injected here and not touched again.
-    """
+    """Build SensorAgent from validated settings. Called once at startup."""
     return SensorAgent(
         provider_name=settings.llm_provider,
         api_key=settings.llm_api_key,
@@ -49,15 +48,18 @@ def _create_agent() -> SensorAgent:
     )
 
 
+# ── Lifespan ──────────────────────────────────────────────────────────────────
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: build agent. Shutdown: log and exit."""
-    print(f"[biot] Starting — {settings}", file=sys.stderr)
+    log.info("Starting BioT Sensor Assistant — %s", settings)
     app.state.agent = _create_agent()
-    print("[biot] Agent ready", file=sys.stderr)
+    log.info("Agent ready (provider=%s, model=%s)", settings.llm_provider, settings.llm_model)
     yield
-    print("[biot] Shutting down", file=sys.stderr)
+    log.info("Server shutting down")
 
+
+# ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="BioT Sensor Assistant",
@@ -67,14 +69,29 @@ app = FastAPI(
 )
 
 
+# ── Global exception handler — logs and returns clean JSON ────────────────────
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    log.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An unexpected server error occurred. Check server logs."},
+    )
+
+
+# ── Dependency ────────────────────────────────────────────────────────────────
+
 def get_agent() -> SensorAgent:
     """FastAPI dependency — provides the shared SensorAgent instance."""
     return app.state.agent
 
 
+# ── Routes ────────────────────────────────────────────────────────────────────
+
 @app.get("/health", summary="Liveness check")
 async def health():
-    """Returns OK if the server is running and the agent is initialised."""
+    """Returns OK if the server is running."""
     return {"status": "ok"}
 
 
@@ -87,14 +104,25 @@ async def chat(
     Process a natural language query and return the assistant's reply.
     Returns 400 for empty messages, 500 on unexpected agent errors.
     """
-    if not req.message.strip():
+    message = req.message.strip()
+
+    if not message:
+        log.warning("Rejected empty message from client")
         raise HTTPException(status_code=400, detail="message must not be empty")
 
+    log.info("Request received: %r", message[:120])
+
     try:
-        reply = agent.run(req.message.strip())
+        reply = agent.run(message)
+        log.info("Response sent: %r", reply[:120])
         return ChatResponse(reply=reply)
+
+    except HTTPException:
+        raise
+
     except Exception as exc:
-        print(f"[biot] Agent error: {exc}", file=sys.stderr)
+        # Log the full traceback server-side, return a safe message to the caller
+        log.error("Agent error for message %r: %s", message[:80], exc, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="The assistant encountered an error. Check server logs.",

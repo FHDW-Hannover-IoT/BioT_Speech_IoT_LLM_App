@@ -2,14 +2,6 @@
 app/agent.py
 ------------
 BioT Sensor Assistant — provider-agnostic agent orchestration.
-
-Responsibilities:
-- Define the system prompt and tool catalogue (provider-neutral format).
-- Dispatch tool calls to the database layer.
-- Delegate actual LLM communication to the injected LLMProvider.
-
-This module has no direct dependency on any LLM SDK. Swapping providers
-is done entirely in config — no changes here are ever needed.
 """
 
 import sys
@@ -17,7 +9,10 @@ from pathlib import Path
 from typing import Any
 
 from app import database
+from app.logger import get_logger
 from app.providers import LLMProvider, create_provider
+
+log = get_logger(__name__)
 
 # ── System prompt ─────────────────────────────────────────────────────────────
 _SYSTEM_PROMPT = """\
@@ -41,17 +36,26 @@ MQTT topics:
   Sensor/Magnet    — hall sensor x,y,z
   Control/Mode     — STREAM / BURST / AVERAGE
 
+When the user asks you to perform an app action (navigate, change mode, apply filter),
+respond with a JSON object in this exact format:
+  { "action": "navigate|mqtt_publish|apply_filter|clear_filter|answer",
+    "tts": "Text to speak aloud",
+    "screen": "ActivityName",       // only for action=navigate
+    "topic": "Control/Mode",        // only for action=mqtt_publish
+    "payload": "STREAM|BURST|AVERAGE", // only for action=mqtt_publish
+    "minutes": 10 }                 // only for action=apply_filter
+
+For pure data answers with no app action, use action="answer" and put the full answer in tts.
+
 Guidelines:
 - Always use tools to fetch real data. Never invent sensor values.
 - Call get_db_schema first if you are unsure which columns a table has.
 - For "latest" or "current" values, query ORDER BY timestamp DESC LIMIT 1.
 - If a table is empty, say so clearly and suggest starting the Android app.
-- Keep answers concise and practical. Plain language — not every user is a developer.
+- Keep answers concise and practical.
 """
 
-# ── Tool catalogue (provider-neutral format) ──────────────────────────────────
-# Stored in Anthropic-style format. Each provider's format_tools() method
-# translates this into whatever its own API expects.
+# ── Tool catalogue ────────────────────────────────────────────────────────────
 _TOOLS: list[dict[str, Any]] = [
     {
         "name": "query_sensor_db",
@@ -66,10 +70,7 @@ _TOOLS: list[dict[str, Any]] = [
             "properties": {
                 "sql": {
                     "type": "string",
-                    "description": (
-                        "A valid SQLite SELECT statement. "
-                        "Only SELECT is permitted — write operations are blocked."
-                    ),
+                    "description": "A valid SQLite SELECT statement. Only SELECT is permitted.",
                 }
             },
             "required": ["sql"],
@@ -93,9 +94,7 @@ _TOOLS: list[dict[str, Any]] = [
 class SensorAgent:
     """
     Stateless BioT sensor assistant.
-
-    Orchestrates tool dispatch and delegates LLM communication to the
-    injected provider. Has no knowledge of which LLM is being used.
+    Orchestrates tool dispatch and delegates LLM communication to the injected provider.
 
     Args:
         provider_name: LLM provider identifier ("anthropic" or "openai").
@@ -112,23 +111,19 @@ class SensorAgent:
         db_path: Path,
     ) -> None:
         self._db_path = db_path
+        log.debug("Initialising SensorAgent (provider=%s, model=%s, db=%s)", provider_name, model, db_path)
 
-        # Provider is created via the factory with this agent's tool dispatcher
-        # injected so it can execute tool calls during the agentic loop
         self._provider: LLMProvider = create_provider(
             provider_name=provider_name,
             api_key=api_key,
             model=model,
             tool_dispatcher=self._dispatch_tool,
         )
-
-    # ── Public interface ──────────────────────────────────────────────────────
+        log.info("SensorAgent ready")
 
     def run(self, user_message: str) -> str:
         """
         Process a single user message and return the assistant's final reply.
-
-        Delegates the full agentic loop (including tool calls) to the provider.
 
         Args:
             user_message: Raw text input from the user or Android app.
@@ -136,34 +131,34 @@ class SensorAgent:
         Returns:
             The assistant's final text reply as a plain string.
         """
-        return self._provider.run(
+        log.debug("Agent.run called with: %r", user_message[:120])
+        reply = self._provider.run(
             user_message=user_message,
             tools=_TOOLS,
             system_prompt=_SYSTEM_PROMPT,
         )
-
-    # ── Private tool dispatcher ───────────────────────────────────────────────
+        log.debug("Agent.run reply: %r", reply[:120])
+        return reply
 
     def _dispatch_tool(self, name: str, inputs: dict[str, Any]) -> str:
         """
         Route a tool call from the LLM to the correct implementation.
-
-        This method is injected into the provider at construction time so the
-        provider can call it during its agentic loop without knowing anything
-        about the database layer.
-
-        Args:
-            name:   Tool name as requested by the LLM.
-            inputs: Tool arguments as a dictionary.
-
-        Returns:
-            Tool result as a plain string to be fed back to the LLM.
+        Logs every tool call and its result length for debugging.
         """
+        log.debug("Tool call: %s — inputs: %s", name, inputs)
+
         if name == "query_sensor_db":
-            return database.query(self._db_path, inputs.get("sql", ""))
+            sql = inputs.get("sql", "")
+            log.info("Executing SQL: %s", sql)
+            result = database.query(self._db_path, sql)
+            log.debug("SQL result (%d chars): %s", len(result), result[:200])
+            return result
 
         if name == "get_db_schema":
-            return database.get_schema(self._db_path)
+            log.info("Fetching database schema")
+            result = database.get_schema(self._db_path)
+            log.debug("Schema result (%d chars)", len(result))
+            return result
 
-        print(f"[agent] WARNING: unknown tool requested: {name!r}", file=sys.stderr)
+        log.warning("Unknown tool requested by LLM: %r", name)
         return f"Tool '{name}' is not implemented."

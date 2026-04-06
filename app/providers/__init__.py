@@ -13,10 +13,11 @@ Usage:
 
 from typing import Any, Callable
 
+from app.logger import get_logger
 from app.providers.base import LLMProvider
 
-# Registry of supported providers.
-# To add a new provider: add its name here and import its class below.
+log = get_logger(__name__)
+
 _SUPPORTED = ("anthropic", "openai")
 
 
@@ -27,41 +28,28 @@ def create_provider(
     tool_dispatcher: Callable[[str, dict[str, Any]], str],
 ) -> LLMProvider:
     """
-    Factory function — instantiates and returns the correct LLMProvider.
+    Factory — instantiates and returns the correct LLMProvider.
 
     Args:
-        provider_name:   Value of LLM_PROVIDER in .env ("anthropic" or "openai").
+        provider_name:   Value of LLM_PROVIDER ("anthropic" or "openai").
         api_key:         Provider API key (injected from settings).
-        model:           Model identifier string (injected from settings).
+        model:           Model identifier string.
         tool_dispatcher: Callable the provider uses to execute tool calls.
-
-    Returns:
-        A concrete LLMProvider instance ready to use.
-
-    Raises:
-        ValueError: If provider_name is not in the supported registry.
     """
     name = provider_name.lower().strip()
+    log.info("Creating LLM provider: %s (model=%s)", name, model)
 
     if name == "anthropic":
         from app.providers.anthropic import AnthropicProvider
-        return AnthropicProvider(
-            api_key=api_key,
-            model=model,
-            tool_dispatcher=tool_dispatcher,
-        )
+        return AnthropicProvider(api_key=api_key, model=model, tool_dispatcher=tool_dispatcher)
 
     if name == "openai":
         from app.providers.openai import OpenAIProvider
-        return OpenAIProvider(
-            api_key=api_key,
-            model=model,
-            tool_dispatcher=tool_dispatcher,
-        )
+        return OpenAIProvider(api_key=api_key, model=model, tool_dispatcher=tool_dispatcher)
 
+    log.error("Unsupported LLM provider: %r (supported: %s)", provider_name, ", ".join(_SUPPORTED))
     raise ValueError(
-        f"Unknown LLM provider: {provider_name!r}. "
-        f"Supported providers: {', '.join(_SUPPORTED)}"
+        f"Unknown LLM provider: {provider_name!r}. Supported: {', '.join(_SUPPORTED)}"
     )
 
 
