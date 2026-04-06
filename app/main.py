@@ -1,67 +1,101 @@
-import asyncio
+"""
+app/main.py
+-----------
+FastAPI entry point for the BioT Sensor Assistant HTTP server.
+
+Endpoints:
+    GET  /health  — liveness check, returns {"status": "ok"}
+    POST /chat    — send a message, receive a reply from the agent
+
+The SensorAgent is instantiated once during application startup via the
+lifespan context and injected into each request via FastAPI's Depends().
+No secrets are ever stored in request/response objects.
+
+Run with:
+    uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+"""
+
 import sys
 from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
-from dotenv import load_dotenv
 
-try:
-    from app.agent_cli_mcp import build_agent, sport_server, filesystem_server, sqlite_server
-    from agents import Runner
-except Exception as e:
-    print("Failed to import from agent_cli_mcp / agents:", e, file=sys.stderr)
-    raise
+from app.agent import SensorAgent
+from config.settings import settings
 
-load_dotenv()
 
 class ChatRequest(BaseModel):
+    """Incoming chat request body."""
     message: str
 
+
 class ChatResponse(BaseModel):
+    """Outgoing chat response body."""
     reply: str
 
+
+def _create_agent() -> SensorAgent:
+    """
+    Factory — builds SensorAgent from validated settings.
+    Called once at startup. All secrets injected here and not touched again.
+    """
+    return SensorAgent(
+        provider_name=settings.llm_provider,
+        api_key=settings.llm_api_key,
+        model=settings.llm_model,
+        db_path=settings.sqlite_db_path,
+    )
+
+
 @asynccontextmanager
-async def lifespan(server: FastAPI):
-    """Startup/shutdown lifecycle for connecting & cleaning up MCP servers."""
-    server.state.agent = None
-    try:
-        agent = await build_agent()
-        server.state.agent = agent
-        yield
-    finally:
-        # Graceful cleanup of any MCP servers started inside build_agent()
-        try:
-            for server in (sport_server, sqlite_server, filesystem_server):
-                if server is not None:
-                    try:
-                        await asyncio.wait_for(server.cleanup(), timeout=5)
-                    except Exception as exception:
-                        print(f"[mcp] cleanup error: {exception}", file=sys.stderr)
-            print("[mcp] disconnected")
-        except Exception as exception:
-            print(f"[shutdown] error: {exception}", file=sys.stderr)
+async def lifespan(app: FastAPI):
+    """Startup: build agent. Shutdown: log and exit."""
+    print(f"[biot] Starting — {settings}", file=sys.stderr)
+    app.state.agent = _create_agent()
+    print("[biot] Agent ready", file=sys.stderr)
+    yield
+    print("[biot] Shutting down", file=sys.stderr)
+
 
 app = FastAPI(
-    title="Agent HTTP Server (FastAPI + OpenAI Agents SDK)",
-    version="1.0.0",
+    title="BioT Sensor Assistant",
+    description="LLM-powered IoT sensor assistant for the BioT Speech IoT project.",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
-@app.get("/health")
+
+def get_agent() -> SensorAgent:
+    """FastAPI dependency — provides the shared SensorAgent instance."""
+    return app.state.agent
+
+
+@app.get("/health", summary="Liveness check")
 async def health():
+    """Returns OK if the server is running and the agent is initialised."""
     return {"status": "ok"}
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
-    if not req.message or not req.message.strip():
-        raise HTTPException(status_code=400, detail="message must be non-empty")
-    agent = getattr(app.state, "agent", None)
-    if agent is None:
-        raise HTTPException(status_code=503, detail="agent is not ready")
+
+@app.post("/chat", response_model=ChatResponse, summary="Chat with the BioT assistant")
+async def chat(
+    req: ChatRequest,
+    agent: Annotated[SensorAgent, Depends(get_agent)],
+):
+    """
+    Process a natural language query and return the assistant's reply.
+    Returns 400 for empty messages, 500 on unexpected agent errors.
+    """
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="message must not be empty")
+
     try:
-        result = await Runner.run(agent, req.message.strip())
-        reply = result.final_output or ""
+        reply = agent.run(req.message.strip())
         return ChatResponse(reply=reply)
-    except Exception as exception:
-        raise HTTPException(status_code=500, detail=f"Agent error: {exception}")
+    except Exception as exc:
+        print(f"[biot] Agent error: {exc}", file=sys.stderr)
+        raise HTTPException(
+            status_code=500,
+            detail="The assistant encountered an error. Check server logs.",
+        )
