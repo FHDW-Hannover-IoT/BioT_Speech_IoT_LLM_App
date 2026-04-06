@@ -8,13 +8,16 @@ Endpoints:
     POST /chat    — send a message, receive a reply from the agent
 
 Run with:
-    uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+    uv run python -m app.main
+    or still:
+    uv run uvicorn app.main:app --reload  (host/port come from .env)
 """
 
 import sys
 from contextlib import asynccontextmanager
 from typing import Annotated
 
+import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -54,7 +57,11 @@ def _create_agent() -> SensorAgent:
 async def lifespan(app: FastAPI):
     log.info("Starting BioT Sensor Assistant — %s", settings)
     app.state.agent = _create_agent()
-    log.info("Agent ready (provider=%s, model=%s)", settings.llm_provider, settings.llm_model)
+    log.info(
+        "Agent ready (provider=%s, model=%s)",
+        settings.llm_provider,
+        settings.llm_model,
+    )
     yield
     log.info("Server shutting down")
 
@@ -69,11 +76,17 @@ app = FastAPI(
 )
 
 
-# ── Global exception handler — logs and returns clean JSON ────────────────────
+# ── Global exception handler ──────────────────────────────────────────────────
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    log.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    log.error(
+        "Unhandled exception on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=True,
+    )
     return JSONResponse(
         status_code=500,
         content={"detail": "An unexpected server error occurred. Check server logs."},
@@ -121,9 +134,24 @@ async def chat(
         raise
 
     except Exception as exc:
-        # Log the full traceback server-side, return a safe message to the caller
         log.error("Agent error for message %r: %s", message[:80], exc, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="The assistant encountered an error. Check server logs.",
         )
+
+
+# ── Entrypoint — reads host/port from settings (injected from .env) ───────────
+
+if __name__ == "__main__":
+    log.info(
+        "Starting uvicorn on %s:%d (from .env settings)",
+        settings.server_host,
+        settings.server_port,
+    )
+    uvicorn.run(
+        "app.main:app",
+        host=settings.server_host,
+        port=settings.server_port,
+        reload=True,
+    )

@@ -3,9 +3,9 @@ config/settings.py
 ------------------
 Centralised configuration for the BioT Sensor Assistant.
 
-All settings are loaded exclusively from environment variables or the .env file.
-No secrets are ever hardcoded here. The .env file is listed in .gitignore and
-must NEVER be committed to version control.
+All settings are loaded from environment variables or the .env file.
+No secrets are ever hardcoded here. The .env file is in .gitignore
+and must NEVER be committed to version control.
 
 Usage:
     from config.settings import settings
@@ -21,7 +21,15 @@ from dotenv import load_dotenv
 _ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=_ENV_PATH)
 
-_SUPPORTED_PROVIDERS = ("anthropic", "openai")
+_SUPPORTED_PROVIDERS = ("anthropic", "openai", "deepseek", "gemini")
+
+# Default models per provider — used when LLM_MODEL is not set in .env
+_DEFAULT_MODELS = {
+    "anthropic": "claude-sonnet-4-6",
+    "openai":    "gpt-4.1",
+    "deepseek":  "deepseek-chat",
+    "gemini":    "gemini-2.0-flash",
+}
 
 
 class Settings:
@@ -32,7 +40,11 @@ class Settings:
 
     @property
     def llm_provider(self) -> str:
-        """Which LLM provider to use. Defaults to anthropic."""
+        """
+        Which LLM provider to use. Read from LLM_PROVIDER.
+        Supported: anthropic, openai, deepseek, gemini.
+        Defaults to anthropic.
+        """
         value = os.getenv("LLM_PROVIDER", "anthropic").strip().lower()
         if value not in _SUPPORTED_PROVIDERS:
             print(
@@ -45,14 +57,19 @@ class Settings:
 
     @property
     def llm_api_key(self) -> str:
-        """API key for the selected provider. Read from LLM_API_KEY."""
+        """
+        API key for the selected provider. Read from LLM_API_KEY.
+        Raises SystemExit with a clear message if missing.
+        """
         key = os.getenv("LLM_API_KEY", "").strip()
         if not key:
             print(
                 "[config] ERROR: LLM_API_KEY is not set.\n"
                 "         Add it to your .env file:\n"
                 "         LLM_API_KEY=sk-ant-...   (Anthropic)\n"
-                "         LLM_API_KEY=sk-...        (OpenAI)",
+                "         LLM_API_KEY=sk-...        (OpenAI)\n"
+                "         LLM_API_KEY=sk-...        (DeepSeek)\n"
+                "         LLM_API_KEY=AI...          (Gemini)",
                 file=sys.stderr,
             )
             raise SystemExit(1)
@@ -60,12 +77,18 @@ class Settings:
 
     @property
     def llm_model(self) -> str:
-        """Model identifier. Read from LLM_MODEL or falls back to a sensible default."""
+        """
+        Model identifier. Read from LLM_MODEL.
+        If not set, a sensible default is chosen per provider:
+            anthropic → claude-sonnet-4-6
+            openai    → gpt-4.1
+            deepseek  → deepseek-chat
+            gemini    → gemini-2.0-flash
+        """
         model = os.getenv("LLM_MODEL", "").strip()
         if model:
             return model
-        defaults = {"anthropic": "claude-sonnet-4-6", "openai": "gpt-4.1"}
-        return defaults.get(self.llm_provider, "claude-sonnet-4-6")
+        return _DEFAULT_MODELS.get(self.llm_provider, "claude-sonnet-4-6")
 
     @property
     def sqlite_db_path(self) -> Path:
