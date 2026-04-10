@@ -456,7 +456,13 @@ def execute_query(sql: str) -> str:
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    import uvicorn
+
     port = settings.mcp_server_port
     log.info("Starting BioT Sensor MCP Server on port %d", port)
     print(f"BioT Sensor MCP Server starting on http://0.0.0.0:{port}/mcp")
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=port, path="/mcp")
+
+    # FastMCP.streamable_http_app() returns a Starlette ASGI app.
+    # We run it with uvicorn directly so we control host and port.
+    starlette_app = mcp.streamable_http_app()
+    uvicorn.run(starlette_app, host="0.0.0.0", port=port)
