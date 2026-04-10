@@ -65,7 +65,7 @@ def _create_subscriber() -> SensorMqttSubscriber:
         db_path=settings.sqlite_db_path,
     )
 
-"""
+
 def _start_mcp_server() -> subprocess.Popen:
     """
     Launch the MCP sensor server as a subprocess.
@@ -73,19 +73,37 @@ def _start_mcp_server() -> subprocess.Popen:
     """
     log.info("Starting MCP sensor server on port %d", settings.mcp_server_port)
 
+    # No stdout/stderr redirect — MCP server output prints directly to this terminal
+    # so any import errors or crashes are immediately visible.
     proc = subprocess.Popen(
         [sys.executable, "-m", "mcp_server.sensor_mcp_server"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
     )
 
     # Give the process a moment to start before probing
-    time.sleep(2.0)
+    time.sleep(3.0)
+
+    # Check if the process already crashed before we even started probing
+    if proc.poll() is not None:
+        log.error(
+            "MCP server process exited immediately (exit code %d). "
+            "Check the output above for the error.",
+            proc.returncode,
+        )
+        raise RuntimeError(
+            f"MCP server failed to start (exit code {proc.returncode}). "
+            "See terminal output for details."
+        )
 
     # Wait up to 15 seconds for the MCP server to become reachable
     mcp_url = f"http://localhost:{settings.mcp_server_port}/mcp"
     for attempt in range(15):
         time.sleep(1.0)
+
+        # Check if it crashed during startup
+        if proc.poll() is not None:
+            log.error("MCP server crashed during startup (exit code %d)", proc.returncode)
+            raise RuntimeError("MCP server crashed. See terminal output for the traceback.")
+
         try:
             httpx.get(mcp_url, timeout=2.0)
             log.info("MCP server ready at %s", mcp_url)
@@ -104,7 +122,7 @@ def _start_mcp_server() -> subprocess.Popen:
             return proc
 
     log.warning(
-        "MCP server did not respond within 17 seconds — "
+        "MCP server did not respond within 18 seconds — "
         "agent will still work but first tool call may be slow"
     )
     return proc
@@ -145,15 +163,16 @@ async def lifespan(app: FastAPI):
         app.state.mcp_proc.terminate()
         log.info("MCP server process terminated")
 
-"""
+
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="BioT Sensor Assistant",
     description="LLM-powered IoT sensor assistant for the BioT Speech IoT project.",
     version="2.0.0",
-    #lifespan=lifespan,
+    lifespan=lifespan,
 )
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
