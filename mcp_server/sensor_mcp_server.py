@@ -15,6 +15,7 @@ Why Streamable HTTP over stdio:
 
 Tools exposed (covering all use cases from LLM_USE_CASES.md):
     get_latest_sensor_data(sensor)      — UC-1.1  latest reading for one sensor
+    get_value_for_axis(sensor, axis)    — UC-1.1b latest value for one axis (Tell value)
     get_sensor_history(sensor, minutes) — UC-1.2/3 readings over a time window
     get_db_schema()                     — UC-1.5  inspect table structure
     get_event_log(limit)                — UC-2.3  ereignis_data entries
@@ -80,6 +81,15 @@ _SENSOR_TABLE = {
 
 _VALID_TABLES = {"accel_data", "gyro_data", "magnet_data", "ereignis_data"}
 
+# Per-table axis column name lookup. We can't rely on a uniform "X" column
+# because Room generated different prefixes (accelX, gyroX, magnetX) and we
+# want the agent to be able to ask for "axis=X" without knowing the prefix.
+_AXIS_COLUMNS = {
+    "accel_data":  {"x": "accelX",  "y": "accelY",  "z": "accelZ"},
+    "gyro_data":   {"x": "gyroX",   "y": "gyroY",   "z": "gyroZ"},
+    "magnet_data": {"x": "magnetX", "y": "magnetY", "z": "magnetZ"},
+}
+
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -118,6 +128,14 @@ def _resolve_table(sensor: str) -> str:
     return table
 
 
+def _format_age(ts_ms: int) -> str:
+    """Format an absolute Unix-ms timestamp as 'N seconds ago' / 'N minutes ago'."""
+    age_s = (time.time() * 1000 - ts_ms) / 1000
+    if age_s < 120:
+        return f"{age_s:.0f} seconds ago"
+    return f"{age_s / 60:.1f} minutes ago"
+
+
 # ── MCP Tools ─────────────────────────────────────────────────────────────────
 
 @mcp.tool()
@@ -151,23 +169,71 @@ def get_latest_sensor_data(sensor: str) -> str:
         if not rows:
             return f"No data in {table} yet. Is the MQTT subscriber running?"
 
-        # Format timestamp as relative time for readability
         row = dict(rows[0])
         ts_ms = row.get("timestamp", 0)
-        age_s = (time.time() * 1000 - ts_ms) / 1000
-        age_str = (
-            f"{age_s:.0f} seconds ago" if age_s < 120
-            else f"{age_s/60:.1f} minutes ago"
-        )
-
         result = _rows_to_text(rows, col_names, False)
-        return f"{result}\n\nRecorded: {age_str}"
+        return f"{result}\n\nRecorded: {_format_age(ts_ms)}"
 
     except (FileNotFoundError, ValueError) as exc:
         log.warning("get_latest_sensor_data error: %s", exc)
         return str(exc)
     except sqlite3.Error as exc:
         log.error("DB error in get_latest_sensor_data: %s", exc, exc_info=True)
+        return f"Database error: {exc}"
+
+
+@mcp.tool()
+def get_value_for_axis(sensor: str, axis: str) -> str:
+    """
+    Get the latest value for a single axis (X, Y, or Z) of a sensor.
+
+    Implements the .adoc command "Tell value (sensor) (axis)" — for example:
+        "Tell me the gyro X value"
+        "Sage mir die Beschleunigung Z"
+        "What is the current magnet Y reading?"
+
+    Args:
+        sensor: Sensor name (accel / gyro / magnet, German or English).
+        axis:   Single axis: x, y, or z (case-insensitive).
+
+    Returns:
+        A short human-readable string with the value and how recent it is.
+        The agent should put this directly into the tts field of its response.
+    """
+    log.info("MCP tool: get_value_for_axis(sensor=%r, axis=%r)", sensor, axis)
+    try:
+        table = _resolve_table(sensor)
+        if table == "ereignis_data":
+            return "ereignis_data is per-event, not per-axis. Use get_event_log instead."
+
+        axis_key = axis.lower().strip()
+        axis_map = _AXIS_COLUMNS.get(table)
+        if not axis_map or axis_key not in axis_map:
+            return f"Unknown axis {axis!r} for sensor {sensor!r}. Valid axes: x, y, z."
+
+        column = axis_map[axis_key]
+        conn = _get_conn()
+        cursor = conn.execute(
+            f"SELECT timestamp, {column} FROM {table} ORDER BY timestamp DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if row is None:
+            return f"No data in {table} yet."
+
+        ts_ms = row["timestamp"]
+        value = row[column]
+        return (
+            f"{sensor.capitalize()} axis {axis_key.upper()} = {value:.3f} "
+            f"({_format_age(ts_ms)})"
+        )
+
+    except (FileNotFoundError, ValueError) as exc:
+        log.warning("get_value_for_axis error: %s", exc)
+        return str(exc)
+    except sqlite3.Error as exc:
+        log.error("DB error in get_value_for_axis: %s", exc, exc_info=True)
         return f"Database error: {exc}"
 
 
@@ -202,7 +268,6 @@ def get_sensor_history(sensor: str, minutes: int = 10) -> str:
 
         conn = _get_conn()
 
-        # Fetch rows
         cursor = conn.execute(
             f"SELECT * FROM {table} WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT ?",
             (since_ms, _MAX_ROWS + 1),
@@ -212,7 +277,6 @@ def get_sensor_history(sensor: str, minutes: int = 10) -> str:
         overflow = len(rows) > _MAX_ROWS
         display_rows = rows[:_MAX_ROWS]
 
-        # Compute summary statistics per numeric column
         numeric_cols = [c for c in col_names if c not in ("id", "timestamp")]
         summary_lines = [f"\nSummary for last {minutes} min ({len(display_rows)} rows):"]
 
@@ -325,7 +389,6 @@ def get_event_log(limit: int = 10) -> str:
         rows = cursor.fetchall()
         col_names = [d[0] for d in cursor.description]
 
-        # Also get today's count for context
         today_start_ms = int(
             (time.time() - (time.time() % 86400)) * 1000
         )
@@ -386,12 +449,7 @@ def get_row_count(table: str = "all") -> str:
             ).fetchone()[0]
 
             if latest:
-                age_s = (time.time() * 1000 - latest) / 1000
-                age_str = (
-                    f"{age_s:.0f}s ago" if age_s < 120
-                    else f"{age_s/60:.1f}min ago"
-                )
-                lines.append(f"{t}: {count} rows, latest {age_str}")
+                lines.append(f"{t}: {count} rows, latest {_format_age(latest)}")
             else:
                 lines.append(f"{t}: 0 rows (empty)")
 
@@ -462,7 +520,5 @@ if __name__ == "__main__":
     log.info("Starting BioT Sensor MCP Server on port %d", port)
     print(f"BioT Sensor MCP Server starting on http://0.0.0.0:{port}/mcp")
 
-    # FastMCP.streamable_http_app() returns a Starlette ASGI app.
-    # We run it with uvicorn directly so we control host and port.
     starlette_app = mcp.streamable_http_app()
     uvicorn.run(starlette_app, host="0.0.0.0", port=port)
