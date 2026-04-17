@@ -1,27 +1,27 @@
 # BioT Sensor Assistant — LLM Use Case Specification
 
-> **Issue #7 — Define LLM-Specific Use Cases**
+> **Issues #7 + #11 — Define LLM-Specific Use Cases & Parse and Execute LLM Intents**
 >
 > This document defines every query category the BioT Sensor Assistant must handle.
 > It is the source of truth for what tools need to exist in the backend, what SQL the
 > agent must generate, and what structured responses the Android app must be able to parse.
 >
-> The use cases are modelled on the Android `VoiceCommandDictionary` — the same intents
-> that the keyword-based voice system handles locally are also handled by the LLM, but
-> the LLM can handle them in natural language, across both German and English, with
-> context and follow-up questions.
+> Source of truth for the command set: `BioT_Speech_IoT_Doc/doc/content/command-dictionary.adoc`.
+> The Android `VoiceCommandDictionary` is the keyword-based fast path; the LLM is the
+> intelligent fallback for everything the dictionary cannot match.
 
 ---
 
 ## How the LLM differs from the keyword dictionary
 
-The Android `VoiceCommandDictionary` matches fixed keyword groups — it is fast, offline,
-and deterministic. It handles simple one-shot commands ("zeige gyro", "stream modus").
+The Android `VoiceCommandDictionary` matches fixed keyword groups — fast, offline, deterministic.
+It handles simple one-shot commands ("zeige gyro", "stream modus", "supervision mode").
 
 The LLM handles everything the dictionary cannot:
 
 - Ambiguous or conversational phrasing ("what's been happening with the accelerometer today?")
 - Multi-part questions ("show me the last 10 minutes of gyro data and tell me if anything looks unusual")
+- **Entity extraction** ("set epsilon to 0.5 for gyro Y axis" — the dictionary can recognise the SET_EPSILON intent but cannot extract sensor + axis + value)
 - Follow-up context ("what about the X axis specifically?")
 - Explanation requests ("why is the mic reading so high?")
 - Queries that require actual data analysis, not just navigation
@@ -30,11 +30,32 @@ The keyword dictionary is the fast path. The LLM is the intelligent path.
 
 ---
 
+## Command source: `command-dictionary.adoc`
+
+The .adoc lists these commands. Each maps to one or more LLM use cases below.
+
+| .adoc command | Use case section |
+|---|---|
+| Start calibration | UC-7.1 |
+| Show (sensor) | UC-1.1, UC-4.1 |
+| Set epsilon (sensor) (axis?) | UC-7.2 |
+| Show events | UC-2.3, UC-4.1 (EreignisActivity) |
+| Show events (sensor) | UC-2.3 (filtered) |
+| Create event (sensor) (threshold) | UC-7.3 |
+| Show notifications (timeframe?) | UC-2.3 |
+| Show notifications (sensor) (timeframe?) | UC-2.3 (filtered) |
+| Set mode to (Autark/Supervision/Event/Identification) | UC-3.1 |
+| Get mode | UC-3.2 |
+| Tell value (sensor) (axis?) | UC-1.1, UC-1.1b |
+| Show all sensors / Show homescreen | UC-4.1 (MainActivity) |
+
+---
+
 ## Use Case Categories
 
 ### Category 1 — Sensor Data Queries
 
-These require the agent to call `query_sensor_db` and return interpreted results.
+These require the agent to call a sensor tool and return interpreted results.
 
 ---
 
@@ -45,196 +66,90 @@ These require the agent to call `query_sensor_db` and return interpreted results
 - "Zeige den letzten Gyro-Wert"
 - "What is the current accelerometer reading?"
 - "Show me the latest mic level"
-- "What is the magnet sensor showing right now?"
 
-**Required SQL pattern:**
-```sql
-SELECT * FROM accel_data ORDER BY timestamp DESC LIMIT 1
-SELECT * FROM gyro_data ORDER BY timestamp DESC LIMIT 1
-SELECT * FROM magnet_data ORDER BY timestamp DESC LIMIT 1
+**Tool to call:** `get_latest_sensor_data(sensor)`
+
+**Structured response format:**
+```json
+{
+  "action": "answer",
+  "tts": "The latest accelerometer reading is X 0.12g, Y -0.04g, Z 9.81g, recorded 2 seconds ago."
+}
 ```
 
-**Expected agent behaviour:**
-- Query the relevant table for the single most recent row
-- Return the X, Y, Z values in plain language with units
-- Convert the timestamp to a human-readable relative time ("3 seconds ago", "vor 5 Sekunden")
+---
 
-**Example response:**
-> "The latest accelerometer reading is X: 0.12g, Y: -0.04g, Z: 9.81g, recorded 2 seconds ago."
+#### UC-1.1b Tell value for a single axis  *(new — from .adoc "Tell value (sensor) (axis?)")*
+
+**Trigger phrases:**
+- "Tell me the gyro X value"
+- "Sage mir die Beschleunigung Z"
+- "What is the magnet Y reading right now?"
+
+**Tool to call:** `get_value_for_axis(sensor, axis)`
+
+**Structured response format:**
+```json
+{
+  "action": "answer",
+  "tts": "Gyro axis X is 0.12 degrees per second, recorded 3 seconds ago."
+}
+```
+
+If no axis is given (e.g. "Tell me the gyro value"), fall back to UC-1.1.
 
 ---
 
 #### UC-1.2 Average over a time window
-
-**Trigger phrases:**
-- "Was war der Durchschnitt der letzten 5 Minuten?"
-- "Show me the average gyro X over the last hour"
-- "Durchschnittlicher Mikrofonwert heute"
-- "What was the average acceleration this morning?"
-
-**Required SQL pattern:**
-```sql
-SELECT AVG(accelX), AVG(accelY), AVG(accelZ)
-FROM accel_data
-WHERE timestamp >= (strftime('%s','now') - 300) * 1000
-```
-
-**Expected agent behaviour:**
-- Parse the time window from the query (5 minutes, 1 hour, today, etc.)
-- Convert to a UNIX millisecond timestamp range
-- Query the appropriate table with AVG()
-- Return the averaged values in plain language
-
----
-
 #### UC-1.3 Data over a time range
-
-**Trigger phrases:**
-- "Zeige mir die Gyro-Daten der letzten 10 Minuten"
-- "Show me accelerometer data from the last hour"
-- "Wie war der Magnetfeldsensor heute Morgen?"
-- "Give me all mic readings from the last 30 minutes"
-
-**Required SQL pattern:**
-```sql
-SELECT * FROM gyro_data
-WHERE timestamp >= (strftime('%s','now') - 600) * 1000
-ORDER BY timestamp DESC
-LIMIT 50
-```
-
-**Expected agent behaviour:**
-- Fetch the rows for the time window (capped at 50 rows)
-- Summarise the range: min, max, average, number of readings
-- Note any obvious spikes or drops
-
----
-
 #### UC-1.4 Row count / data availability check
-
-**Trigger phrases:**
-- "Wie viele Einträge gibt es in der Datenbank?"
-- "How many accelerometer readings have been recorded?"
-- "Is there any data in the database?"
-- "Gibt es Gyro-Daten?"
-
-**Required SQL pattern:**
-```sql
-SELECT COUNT(*) FROM accel_data
-SELECT COUNT(*) FROM gyro_data
-SELECT COUNT(*) FROM magnet_data
-SELECT COUNT(*) FROM ereignis_data
-```
-
-**Expected agent behaviour:**
-- Run COUNT on the relevant table(s)
-- If zero → tell the user the table is empty and suggest starting the Android app
-- If non-zero → report the count and the timestamp of the most recent entry
-
----
-
 #### UC-1.5 Database schema inspection
 
-**Trigger phrases:**
-- "Was sind die Tabellen in der Datenbank?"
-- "What columns does the gyro table have?"
-- "Show me the database structure"
-- "Welche Daten werden gespeichert?"
-
-**Expected agent behaviour:**
-- Call `get_db_schema` tool
-- Explain the tables in plain language
-- Map column names to what the physical sensor measures
+*(unchanged from previous version — see `get_sensor_history`, `get_row_count`, `get_db_schema` tools)*
 
 ---
 
 ### Category 2 — Anomaly and Pattern Detection
 
-These require the agent to fetch data and reason about it.
-
----
-
 #### UC-2.1 Spike detection
-
-**Trigger phrases:**
-- "Gab es ungewöhnliche Werte beim Gyroskop?"
-- "Were there any spikes in the accelerometer data?"
-- "Hat der Mikrofon-Sensor heute Ausreißer gezeigt?"
-- "Show me any anomalies in the last hour"
-
-**Required SQL pattern:**
-```sql
-SELECT * FROM gyro_data
-WHERE timestamp >= (strftime('%s','now') - 3600) * 1000
-ORDER BY timestamp DESC LIMIT 50
-```
-
-**Expected agent behaviour:**
-- Fetch the recent data window
-- Calculate the mean and standard deviation mentally (or via SQL)
-- Flag any readings more than 2x the average as potential spikes
-- Report the timestamp and value of flagged readings
-- If nothing unusual → confirm the data looks stable
-
----
-
 #### UC-2.2 Trend analysis
 
-**Trigger phrases:**
-- "Steigt die Beschleunigung über Zeit?"
-- "Is the gyro value increasing or decreasing?"
-- "Wie hat sich der Magnetfeldsensor in der letzten Stunde verändert?"
-
-**Expected agent behaviour:**
-- Fetch a time-ordered set of readings
-- Compare the first half average to the second half average
-- Report whether the trend is rising, falling, or stable with the magnitude of change
+*(unchanged — see `get_sensor_history` tool)*
 
 ---
 
-#### UC-2.3 Event log queries
+#### UC-2.3 Event log queries  *(extended for .adoc "Show events" and "Show notifications")*
 
 **Trigger phrases:**
 - "Wie viele Ereignisse wurden heute ausgelöst?"
-- "How many events were triggered in the last hour?"
-- "Zeige die letzten 5 Ereignisse"
+- "Show events" / "Show events for accel"
+- "Show notifications" / "Show notifications today"
 - "Were there any magnet events recently?"
-- "Show me all ACCEL events"
 
-**Required SQL pattern:**
-```sql
-SELECT * FROM ereignis_data ORDER BY timestamp DESC LIMIT 10
-SELECT * FROM ereignis_data WHERE sensorType = 'ACCEL' ORDER BY timestamp DESC LIMIT 10
-SELECT COUNT(*) FROM ereignis_data WHERE timestamp >= (strftime('%s','now') - 86400) * 1000
+**Tool to call:** `get_event_log(limit)` and optionally `execute_query` for filters.
+
+**Structured response format:**
+```json
+{
+  "action": "navigate",
+  "screen": "EreignisActivity",
+  "tts": "There are 3 events today. Latest was an ACCEL threshold crossing 12 minutes ago."
+}
 ```
 
-**Expected agent behaviour:**
-- Query `ereignis_data` with optional filter on `sensorType`
-- Return event count, sensor type, value, and relative timestamp
-- For listing: format as a readable list with timestamps
-
 ---
 
-### Category 3 — MQTT Mode Control
+### Category 3 — Mode Control
 
-These mirror the `SET_MODE_STREAM / BURST / AVERAGE` intents from the Android dictionary.
-The LLM handles these when the keyword matcher is bypassed (e.g. natural phrasing).
+> **Important:** The system has TWO orthogonal mode concepts that publish on
+> separate MQTT topics. Don't conflate them.
 
----
+#### UC-3.1 Switch transmission mode  *(Control/Mode topic — Stream/Burst/Average)*
 
-#### UC-3.1 Switch transmission mode
+This controls how often the ESP8266 publishes readings.
 
 **Trigger phrases:**
-- "Wechsle in den Stream-Modus"
-- "Switch to burst mode"
-- "Aktiviere den Durchschnittsmodus"
-- "Change the sensor to average mode"
-- "Set it to stream"
-
-**Expected agent behaviour:**
-- Identify the target mode: STREAM, BURST, or AVERAGE
-- Return a structured action response the Android app can execute
-- Speak a confirmation via TTS
+- "Wechsle in den Stream-Modus" / "Switch to burst mode" / "Aktiviere den Durchschnittsmodus"
 
 **Structured response format:**
 ```json
@@ -242,44 +157,56 @@ The LLM handles these when the keyword matcher is bypassed (e.g. natural phrasin
   "action": "mqtt_publish",
   "topic": "Control/Mode",
   "payload": "BURST",
-  "tts": "Burst Modus aktiviert"
+  "tts": "Burst mode activated"
+}
+```
+
+#### UC-3.1b Switch operating mode  *(Control/OperatingMode topic — Autark/Supervision/Event/Identification)*
+
+This controls what the ESP8266 is doing — per `command-dictionary.adoc`:
+- **Autark:** sensors stop sending data (power saving)
+- **Supervision:** sensors send all data; app shows homescreen
+- **Event:** sensors only send data when thresholds are crossed; app notifies
+- **Identification:** sensors send all data; app forwards to database
+
+**Trigger phrases:**
+- "Set mode to Supervision" / "Wechsle in den Autark Modus" / "Identifikation aktivieren"
+
+**Structured response format:**
+```json
+{
+  "action": "mqtt_publish",
+  "topic": "Control/OperatingMode",
+  "payload": "SUPERVISION",
+  "tts": "Supervision mode activated"
+}
+```
+
+#### UC-3.2 Get mode  *(.adoc "Get mode")*
+
+**Trigger phrases:**
+- "Welcher Modus ist aktiv?" / "What mode is active?" / "Get mode"
+
+**Expected agent behaviour:**
+The current mode is not stored in the SQLite DB — it lives only as a retained MQTT
+message that the Android app already displays in its `ModeLabel` and `OperatingModeLabel`
+text views. The agent should respond with `action=answer` and tell the user to look at
+those labels (or wait for the ESP8266 to re-publish on `Control/OperatingMode`).
+
+```json
+{
+  "action": "answer",
+  "tts": "Check the mode labels on the home screen — they always show the current transmission and operating mode."
 }
 ```
 
 ---
 
-#### UC-3.2 What mode is active?
-
-**Trigger phrases:**
-- "Welcher Modus ist aktiv?"
-- "What mode are the sensors in?"
-- "Are we in stream or burst mode?"
-
-**Expected agent behaviour:**
-- Query `Control/Mode` retained message knowledge (or tell the user to check the app)
-- Note: this cannot be answered from the SQLite DB — the agent should explain this clearly
-- Suggest the user look at the mode buttons in the app or listen to the TTS confirmation from the last mode change
-
----
-
 ### Category 4 — Navigation Commands
-
-These mirror the `NAVIGATE_*` intents from the Android dictionary.
-The LLM handles these when combined with a question ("show me the gyro screen and tell me the latest value").
-
----
 
 #### UC-4.1 Navigate to a screen
 
-**Trigger phrases:**
-- "Zeige mir das Gyroskop"
-- "Open the accelerometer view"
-- "Gehe zur Magnetfeld-Ansicht"
-- "Navigate to events"
-- "Zeige die Graphenansicht"
-- "Öffne die Einstellungen"
-
-**Screen mapping:**
+Same as before. Screen mapping table:
 
 | Phrase keywords | Target screen | Android Activity |
 |---|---|---|
@@ -289,179 +216,161 @@ The LLM handles these when combined with a question ("show me the gyro screen an
 | graph, graphen, alle sensoren, all sensors | Combined chart | `MainGraphActivity` |
 | ereignis, events, notifications | Event log | `EreignisActivity` |
 | einstellungen, settings | Settings | `SettingsActivity` |
-| home, hauptseite, main, start | Main dashboard | `MainActivity` |
+| home, hauptseite, main, start, **show all sensors**, **show homescreen** | Main dashboard | `MainActivity` |
 
-**Structured response format:**
 ```json
-{
-  "action": "navigate",
-  "screen": "GyroActivity",
-  "tts": "Öffne Gyroskop"
-}
+{ "action": "navigate", "screen": "GyroActivity", "tts": "Opening Gyroscope" }
 ```
-
----
 
 #### UC-4.2 Navigate + query combined
 
-**Trigger phrases:**
-- "Zeige mir den Gyro-Bildschirm und sage mir den letzten Wert"
-- "Open the accelerometer and show me if anything is unusual"
-- "Go to events and tell me how many there are today"
-
-**Expected agent behaviour:**
-- Return a navigate action for the Android app to execute
-- Also include the data answer in the `tts` field so it is spoken immediately after navigation
-- Query the database as needed for the data part
-
-**Structured response format:**
-```json
-{
-  "action": "navigate",
-  "screen": "GyroActivity",
-  "tts": "Öffne Gyroskop. Der letzte Wert war X: -0.94, Y: 4.50, Z: -4.06."
-}
-```
+*(unchanged — combine the navigate action with the data answer in `tts`)*
 
 ---
 
 ### Category 5 — Time Filter Commands
 
-These mirror the `FILTER_LAST_10_MIN / FILTER_LAST_HOUR / FILTER_LAST_DAY / FILTER_CLEAR` intents.
-
----
-
 #### UC-5.1 Apply a time filter
-
-**Trigger phrases:**
-- "Zeige die letzten 10 Minuten"
-- "Filter the last hour"
-- "Zeige nur Daten von heute"
-- "Show me the last 30 minutes"
-
-**Structured response format:**
-```json
-{
-  "action": "apply_filter",
-  "minutes": 10,
-  "tts": "Zeige letzte 10 Minuten"
-}
-```
-
----
-
 #### UC-5.2 Clear filters
 
-**Trigger phrases:**
-- "Filter entfernen"
-- "Clear the filter"
-- "Zeige alle Daten"
-- "Remove time filter"
-
-**Structured response format:**
-```json
-{
-  "action": "clear_filter",
-  "tts": "Filter entfernt"
-}
-```
+*(unchanged — `apply_filter` / `clear_filter` actions)*
 
 ---
 
 ### Category 6 — General / System
 
----
-
 #### UC-6.1 Help / what can you do?
-
-**Trigger phrases:**
-- "Hilfe"
-- "Was kannst du?"
-- "Help"
-- "What can you help me with?"
-- "Liste alle Befehle auf"
-
-**Expected agent behaviour:**
-- Return a concise summary of the six use case categories
-- Do not list every single phrase — give one example per category
-- Keep it short enough to be spoken via TTS in under 20 seconds
-
----
-
 #### UC-6.2 Project information
+#### UC-6.3 Unknown / fallback  *(Issue #11 acceptance criterion)*
 
-**Trigger phrases:**
-- "Was ist BioT?"
-- "Erkläre das Projekt"
-- "What sensors are connected?"
-- "Welche Sensoren hat das System?"
+When the user's transcript is unparseable, the LLM returns invalid JSON, or the resolver
+matched UNKNOWN_INTENT, both the Android `LlmQueryHandler` and the agent system prompt
+fall back to:
 
-**Expected agent behaviour:**
-- Answer from the system prompt knowledge (no DB query needed)
-- Describe the ESP8266, KY-037, MPU-6050, A3144, MQTT, Android app connection
-- Keep the answer conversational and short
+```json
+{
+  "action": "answer",
+  "tts": "Sorry, I didn't catch that. Could you repeat your question?"
+}
+```
+
+The Android app speaks this fallback via `TtsManager` whether the bad reply came from the
+network, a JSON parse error, or an explicit UNKNOWN_INTENT signal from the LLM.
 
 ---
 
-#### UC-6.3 Unknown / fallback
+### Category 7 — Calibration & Event Management  *(new — from .adoc, rails laid in Phase 2)*
 
-When no use case matches:
+These commands have voice-pipeline support (the dictionary recognises them and the executor
+forwards to the LLM) but the underlying app features are not yet implemented. The agent's job
+for now is to acknowledge politely and direct the user to the manual UI path.
 
-**Expected agent behaviour:**
-- Acknowledge the query was not understood
-- Suggest the closest matching use case
-- Do not hallucinate data or make up sensor values
+---
+
+#### UC-7.1 Start calibration  *(.adoc "Start calibration")*
+
+**Trigger phrases:** "Start calibration", "Kalibrierung starten"
+
+**Status:** Voice command recognised. Calibration UI not yet implemented.
 
 **Structured response format:**
 ```json
 {
   "action": "answer",
-  "tts": "Das habe ich nicht verstanden. Du kannst mich zum Beispiel fragen: Was ist der aktuelle Gyro-Wert?"
+  "tts": "Calibration is recognised but not yet implemented. We'll add it in a later milestone."
 }
 ```
 
 ---
 
-## Structured Response Schema
+#### UC-7.2 Set epsilon  *(.adoc "Set epsilon (sensor) (axis?)")*
 
-Every response from the `/chat` endpoint must follow one of these action types so the Android app can parse and act on it.
+**Trigger phrases:**
+- "Set epsilon for gyro to 0.5"
+- "Setze Epsilon für Beschleunigung Z auf eins"
+- "Adjust epsilon"
+
+**Expected agent behaviour:**
+- Try to extract sensor + axis + value from the transcript
+- If extraction succeeds, respond with action=answer explaining how to set it manually
+  in `SettingsActivity` (the Douglas-Peucker epsilon field is already there)
+- If extraction fails, ask the user to repeat with explicit values
 
 ```json
 {
-  "action": "answer | navigate | mqtt_publish | apply_filter | clear_filter",
-  "tts": "Text to speak aloud via Android TTS",
+  "action": "navigate",
+  "screen": "SettingsActivity",
+  "tts": "Open Settings to adjust epsilon. Per-sensor and per-axis epsilon is not yet implemented."
+}
+```
 
-  // Only for action = "navigate":
-  "screen": "MainActivity | AccelActivity | GyroActivity | MagnetActivity | MainGraphActivity | EreignisActivity | SettingsActivity",
+---
 
-  // Only for action = "mqtt_publish":
-  "topic": "Control/Mode",
-  "payload": "STREAM | BURST | AVERAGE",
+#### UC-7.3 Create event  *(.adoc "Create event (sensor) (threshold)")*
 
-  // Only for action = "apply_filter":
+**Trigger phrases:**
+- "Create event for gyro at threshold 50"
+- "Erstelle ein Ereignis für Beschleunigung wenn größer als 5"
+
+**Expected agent behaviour:**
+- Try to extract sensor + threshold from the transcript
+- Navigate to `EreignisActivity` so the user can fill in the form there
+- Programmatic event creation from the LLM is not yet supported
+
+```json
+{
+  "action": "navigate",
+  "screen": "EreignisActivity",
+  "tts": "Open the events screen to create a new threshold rule. I detected sensor=gyro, threshold=50 — please confirm in the form."
+}
+```
+
+---
+
+## Structured Response Schema (single source of truth)
+
+Every response from the `/chat` endpoint MUST be one valid JSON object matching:
+
+```json
+{
+  "action":  "answer | navigate | mqtt_publish | apply_filter | clear_filter",
+  "tts":     "Text to speak aloud via Android TtsManager (always present)",
+
+  // action="navigate":
+  "screen":  "MainActivity | AccelActivity | GyroActivity | MagnetActivity | MainGraphActivity | EreignisActivity | SettingsActivity",
+
+  // action="mqtt_publish":
+  "topic":   "Control/Mode | Control/OperatingMode",
+  "payload": "STREAM | BURST | AVERAGE | AUTARK | SUPERVISION | EVENT | IDENTIFICATION",
+
+  // action="apply_filter":
   "minutes": 10
 }
 ```
 
-The `tts` field is always present. The Android app speaks it via `TtsManager` regardless of what other action is taken.
-
-For pure data answers with no app action needed, use `action: "answer"` and put the full answer in `tts`.
+**Parser tolerance** (Android side, see `LlmAction.parse()`):
+- Markdown fences (` ```json ... ``` `) are stripped
+- Plain prose with no JSON → treated as ANSWER with the prose as `tts`
+- Malformed JSON → falls back to the UC-6.3 prompt
+- Unknown action types → treated as ANSWER (forward-compatible)
 
 ---
 
 ## Tools Required in the Backend
 
-Based on the use cases above, the agent needs these tools:
-
-| Tool | UC categories | SQL / action |
+| Tool | UC categories | What it does |
 |---|---|---|
-| `query_sensor_db(sql)` | 1, 2, 3.2 | Any SELECT against the 4 tables |
-| `get_db_schema()` | 1.5 | sqlite_master query |
+| `get_latest_sensor_data(sensor)` | 1.1, 4.2 | Most recent row from one sensor table |
+| `get_value_for_axis(sensor, axis)` | 1.1b | Most recent value for one axis (NEW) |
+| `get_sensor_history(sensor, minutes)` | 1.2, 1.3, 2.1, 2.2 | Time-windowed rows + summary stats |
+| `get_db_schema()` | 1.5 | CREATE TABLE statements |
+| `get_event_log(limit)` | 2.3 | Recent ereignis_data entries |
+| `get_row_count(table)` | 1.4 | Per-table counts and freshness |
+| `execute_query(sql)` | 1.x complex | Raw SELECT for ad-hoc queries |
 
-These two tools already exist in `app/agent.py`. No additional tools are needed — the agent uses `query_sensor_db` with the right SQL for every data use case.
-
-The agent's system prompt instructs it to always return structured JSON matching the schema above. The Android `LlmQueryHandler` (to be implemented in Phase 2 #11) parses this JSON and dispatches the action.
+All tools live in `mcp_server/sensor_mcp_server.py` and are exposed via the
+Streamable HTTP MCP transport on `MCP_SERVER_PORT` (default 8002).
 
 ---
 
-*BioT Speech IoT — LLM Use Case Specification | Issue #7 | FHDW Hannover IoT 2025-26*
+*BioT Speech IoT — LLM Use Case Specification | Issues #7 + #11 | FHDW Hannover IoT 2025-26*
