@@ -18,7 +18,10 @@ import json
 import sys
 from typing import Any, Callable
 
+from app.logger import get_logger
 from app.providers.base import LLMProvider
+
+log = get_logger(__name__)
 
 _MAX_TURNS = 10
 _LOOP_FALLBACK = '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
