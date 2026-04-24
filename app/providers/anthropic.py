@@ -14,6 +14,9 @@ from app.providers.base import LLMProvider
 
 log = get_logger(__name__)
 
+_MAX_TURNS = 10
+_LOOP_FALLBACK = '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
+
 
 class AnthropicProvider(LLMProvider):
     """
@@ -49,10 +52,8 @@ class AnthropicProvider(LLMProvider):
         """Execute the Claude agentic loop for a single user turn."""
         formatted_tools = self.format_tools(tools)
         messages: list[dict[str, Any]] = [{"role": "user", "content": user_message}]
-        turn = 0
 
-        while True:
-            turn += 1
+        for turn in range(1, _MAX_TURNS + 1):
             log.debug("Anthropic API call — turn %d, messages=%d", turn, len(messages))
 
             try:
@@ -99,6 +100,9 @@ class AnthropicProvider(LLMProvider):
                 text = self._extract_text(response.content)
                 log.debug("Final response (%d chars): %s", len(text), text[:200])
                 return text
+
+        log.error("Agent exceeded max turns (%d) — returning fallback", _MAX_TURNS)
+        return _LOOP_FALLBACK
 
     @staticmethod
     def _extract_text(content: list[Any]) -> str:
