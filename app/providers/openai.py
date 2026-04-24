@@ -20,6 +20,9 @@ from typing import Any, Callable
 
 from app.providers.base import LLMProvider
 
+_MAX_TURNS = 10
+_LOOP_FALLBACK = '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
+
 
 class OpenAIProvider(LLMProvider):
     """
@@ -94,7 +97,9 @@ class OpenAIProvider(LLMProvider):
             {"role": "user", "content": user_message},
         ]
 
-        while True:
+        for turn in range(1, _MAX_TURNS + 1):
+            log.debug("OpenAI API call — turn %d, messages=%d", turn, len(messages))
+
             response = self._client.chat.completions.create(
                 model=self._model,
                 messages=messages,
@@ -105,14 +110,16 @@ class OpenAIProvider(LLMProvider):
             choice = response.choices[0]
             message = choice.message
 
+            log.debug("OpenAI response — finish_reason=%s", choice.finish_reason)
+
             if choice.finish_reason == "tool_calls" and message.tool_calls:
-                # Append the assistant's tool-request message
                 messages.append(message)
 
-                # Execute each tool call and append results
                 for tool_call in message.tool_calls:
                     tool_input = json.loads(tool_call.function.arguments)
+                    log.info("Tool use requested: %s — inputs: %s", tool_call.function.name, tool_input)
                     result = self._dispatch(tool_call.function.name, tool_input)
+                    log.debug("Tool result (%d chars): %s", len(result), result[:200])
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tool_call.id,
@@ -120,5 +127,9 @@ class OpenAIProvider(LLMProvider):
                     })
 
             else:
-                # Final response
-                return message.content or "[no response]"
+                text = message.content or "[no response]"
+                log.debug("Final response (%d chars): %s", len(text), text[:200])
+                return text
+
+        log.error("Agent exceeded max turns (%d) — returning fallback", _MAX_TURNS)
+        return _LOOP_FALLBACK

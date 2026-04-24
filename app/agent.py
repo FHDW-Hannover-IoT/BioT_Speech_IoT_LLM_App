@@ -3,17 +3,19 @@ app/agent.py
 ------------
 BioT Sensor Assistant — provider-agnostic agent orchestration.
 
-Tool calls are dispatched to the MCP server over HTTP (streamable-http).
+Tool calls are dispatched to the MCP server over the MCP Streamable HTTP
+transport using JSON-RPC 2.0 (POST to /mcp with a JSON-RPC envelope).
 The agent is fully decoupled from the database — it only knows the MCP URL.
 """
 
-from pathlib import Path
+import uuid as _uuid
 from typing import Any
 
 import httpx
 
 from app.logger import get_logger
 from app.providers import LLMProvider, create_provider
+from config.settings import settings
 
 log = get_logger(__name__)
 
@@ -21,7 +23,9 @@ _SYSTEM_PROMPT = """\
 You are BioT, an intelligent IoT assistant for the BioT Speech IoT project at FHDW Hannover.
 
 The system connects an ESP8266 NodeMCU microcontroller to an Android app via MQTT.
-Sensors: KY-037 microphone, MPU-6050 accelerometer/gyroscope, A3144 hall effect sensor.
+Sensors: MPU-6050 accelerometer/gyroscope, A3144 hall effect sensor.
+Voice input uses the Android phone's built-in microphone (Android SpeechRecognizer — not a hardware sensor).
+The KY-037 microphone hardware sensor was removed from this project — if asked about it, say it is not available.
 
 You have tools to query a live SQLite database of sensor readings. ALWAYS use them
 to fetch real data — never invent or guess sensor values.
@@ -33,7 +37,6 @@ Database tables (mirror the Android Room database exactly):
   ereignis_data — id, timestamp (ms), sensorType (ACCEL/GYRO/MAGNET), value, axis
 
 MQTT topics:
-  Sensor/Mic              — KY-037 sound level (0-1023, display-only, not in DB)
   Sensor/Bewegung         — accelerometer x,y,z   → accel_data
   Sensor/Gyro             — gyroscope x,y,z       → gyro_data
   Sensor/Magnet           — hall sensor x,y,z     → magnet_data
@@ -54,11 +57,9 @@ RESPONSE FORMAT — IMPORTANT
 
 Every reply MUST be a single JSON object matching one of the action types below.
 The Android app parses the JSON and dispatches the action; the `tts` field is
-ALWAYS spoken aloud regardless of action.
+ALWAYS spoken aloud regardless of action type.
 
-If the Android app sends a question that cannot be parsed into any action, OR
-if a tool call fails, OR if the user's transcript is unclear (UNKNOWN_INTENT),
-fall back to:
+If a tool call fails, or the user's intent is unclear, fall back to:
 
   { "action": "answer",
     "tts": "Sorry, I didn't catch that. Could you repeat your question?" }
@@ -75,7 +76,7 @@ Action types
        "screen": "GyroActivity",
        "tts": "Opening Gyroscope" }
 
-   Valid screen names (must match Android Activity class names):
+   Valid screen names (must match Android Activity class names exactly):
      MainActivity, AccelActivity, GyroActivity, MagnetActivity,
      MainGraphActivity, EreignisActivity, SettingsActivity
 
@@ -102,32 +103,39 @@ Action types
 HANDLING SPECIFIC USER INTENTS
 ────────────────────────────────────────────────────────────────────────────────
 
-• "Tell me the value of (sensor) (axis?)"  →  call get_latest_sensor_data or
-  get_value_for_axis, then respond with action=answer and the value(s) in tts.
+• "Tell value (sensor) (axis?)"
+  → call get_value_for_axis or get_latest_sensor_data, respond with action=answer.
 
-• "What mode is active?" / "Get mode"  →  there's no DB table for current mode.
-  Respond with action=answer and ask the user to look at the mode label on the
-  app's home screen.
+• "Tell value mic" / "mic level" / any microphone query
+  → The KY-037 mic hardware was removed. Respond:
+    { "action": "answer", "tts": "The hardware microphone sensor is not part of this system. Voice input uses the phone's built-in mic." }
 
-• "Set epsilon …" / "Start calibration"  →  these features are not yet
-  implemented in the Android app. Respond with action=answer and tell the user
-  it's not available, suggest opening Settings.
+• "What mode is active?" / "Get mode"
+  → The current mode is stored as a retained MQTT message, not in the database.
+    Respond with action=answer and tell the user to check the mode label on the
+    app's home screen.
 
-• "Create event for (sensor) (threshold)"  →  navigate to EreignisActivity and
-  tell the user to use the form there. The Android app does not yet accept
-  programmatic event creation from the LLM.
+• "Set epsilon …" / "Start calibration"
+  → Not yet implemented. Navigate to SettingsActivity and explain in tts.
 
-• Anomaly / spike questions  →  call get_sensor_history, eyeball the values,
-  flag anything more than 2× the mean as a candidate spike.
+• "Create event for (sensor) (threshold)"
+  → Navigate to EreignisActivity and tell the user to use the form there.
 
-• Anything ambiguous  →  pick the most likely action; never guess sensor values.
+• Anomaly / spike questions
+  → Call get_sensor_history, flag any value more than 2× the mean as a candidate.
+
+• "Show last N minutes" / filter commands
+  → Respond with action=apply_filter and minutes=N. Do NOT navigate away.
+
+• Any ambiguous intent
+  → Pick the most likely action. Never guess sensor values — use tools.
 
 Guidelines:
-- ALWAYS use tools to fetch real data. Never guess.
-- Call get_db_schema first if you're unsure which columns a table has.
+- ALWAYS use tools to fetch real data. Never invent values.
+- Call get_db_schema first if unsure which columns a table has.
 - If a table is empty, say so and suggest starting the Android app.
-- Keep the tts field SHORT (under 20 seconds when spoken).
-- Always return valid JSON. Do not wrap it in markdown fences.
+- Keep tts SHORT (under 20 seconds when spoken aloud).
+- Always return valid JSON. Do not wrap in markdown fences.
 """
 
 _TOOLS: list[dict[str, Any]] = [
@@ -156,7 +164,7 @@ _TOOLS: list[dict[str, Any]] = [
         "name": "get_value_for_axis",
         "description": (
             "Get the latest value for a single axis (X, Y, or Z) of a sensor. "
-            "Use for the .adoc 'Tell value (sensor) (axis)' command, e.g. "
+            "Use for 'Tell value (sensor) (axis)' commands, e.g. "
             "'tell me the gyro X value', 'sage mir die Beschleunigung Z'."
         ),
         "input_schema": {
@@ -177,9 +185,10 @@ _TOOLS: list[dict[str, Any]] = [
     {
         "name": "get_sensor_history",
         "description": (
-            "Get sensor readings from the last N minutes with statistical summary. "
+            "Get sensor readings from the last N minutes with statistical summary "
+            "(count, min, max, avg per axis). "
             "Use for: 'Show me the last 10 minutes of gyro data', "
-            "'Were there any spikes?', 'Zeige die Daten der letzten Stunde'."
+            "'Were there any spikes?', anomaly detection, trend analysis."
         ),
         "input_schema": {
             "type": "object",
@@ -209,8 +218,8 @@ _TOOLS: list[dict[str, Any]] = [
         "name": "get_event_log",
         "description": (
             "Return recent threshold events from ereignis_data. "
-            "Use for: 'How many events today?', 'Zeige die letzten Ereignisse', "
-            "'Were there any ACCEL events recently?'"
+            "Use for: 'Show notifications', 'How many events today?', "
+            "'Were there any ACCEL events recently?', QUERY_RECENT_EVENTS commands."
         ),
         "input_schema": {
             "type": "object",
@@ -269,9 +278,8 @@ class SensorAgent:
     """
     Stateless BioT sensor assistant.
 
-    Tool calls are dispatched to the MCP server over HTTP.
-    The agent is fully decoupled from the database — only knows the MCP URL.
-    When deploying publicly, only MCP_SERVER_URL in .env needs to change.
+    Tool calls are dispatched to the MCP server via JSON-RPC 2.0 over the
+    Streamable HTTP transport (POST to /mcp).
     """
 
     def __init__(
@@ -279,7 +287,6 @@ class SensorAgent:
         provider_name: str,
         api_key: str,
         model: str,
-        db_path: Path,
         mcp_server_url: str,
     ) -> None:
         self._mcp_url = mcp_server_url.rstrip("/")
@@ -306,21 +313,40 @@ class SensorAgent:
         return reply
 
     def _dispatch_tool(self, name: str, inputs: dict[str, Any]) -> str:
-        """Forward a tool call from the LLM to the MCP server over HTTP."""
-        log.info("Dispatching tool via MCP: %s — inputs: %s", name, inputs)
+        """
+        Forward a tool call from the LLM to the MCP server.
+
+        Uses JSON-RPC 2.0 over the MCP Streamable HTTP transport.
+        The endpoint is the base /mcp path — NOT /tools/call (which does not
+        exist in the FastMCP Streamable HTTP spec).
+        """
+        log.info("Dispatching tool via MCP JSON-RPC: %s — inputs: %s", name, inputs)
+
+        payload = {
+            "jsonrpc": "2.0",
+            "id": _uuid.uuid4().hex,
+            "method": "tools/call",
+            "params": {
+                "name": name,
+                "arguments": inputs,
+            },
+        }
 
         try:
             response = httpx.post(
-                f"{self._mcp_url}/tools/call",
-                json={"name": name, "arguments": inputs},
-                timeout=30.0,
+                self._mcp_url,          # e.g. http://localhost:8002/mcp
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=settings.mcp_tool_timeout_secs,
             )
             response.raise_for_status()
             data = response.json()
 
-            content = data.get("content", [])
+            # JSON-RPC 2.0 wraps the tool result in {"result": {"content": [...]}}
+            result_data = data.get("result", {})
+            content = result_data.get("content", [])
             texts = [b["text"] for b in content if b.get("type") == "text"]
-            result = "\n".join(texts) if texts else str(data)
+            result = "\n".join(texts) if texts else str(result_data)
 
             log.debug("MCP result (%d chars): %s", len(result), result[:200])
             return result
@@ -328,7 +354,7 @@ class SensorAgent:
         except httpx.ConnectError:
             msg = (
                 f"MCP server unreachable at {self._mcp_url}. "
-                "Ensure sensor_mcp_server.py is running on port configured in .env."
+                "Ensure sensor_mcp_server.py is running."
             )
             log.error(msg)
             return msg

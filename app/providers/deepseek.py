@@ -23,8 +23,9 @@ from app.providers.base import LLMProvider
 
 log = get_logger(__name__)
 
-# DeepSeek's OpenAI-compatible endpoint
 _DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+_MAX_TURNS = 10
+_LOOP_FALLBACK = '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
 
 
 class DeepSeekProvider(LLMProvider):
@@ -95,10 +96,8 @@ class DeepSeekProvider(LLMProvider):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ]
-        turn = 0
 
-        while True:
-            turn += 1
+        for turn in range(1, _MAX_TURNS + 1):
             log.debug("DeepSeek API call — turn %d, messages=%d", turn, len(messages))
 
             response = self._client.chat.completions.create(
@@ -114,7 +113,6 @@ class DeepSeekProvider(LLMProvider):
             log.debug("DeepSeek response — finish_reason=%s", choice.finish_reason)
 
             if choice.finish_reason == "tool_calls" and message.tool_calls:
-                # Append assistant's tool-request message
                 messages.append(message)
 
                 for tool_call in message.tool_calls:
@@ -132,3 +130,6 @@ class DeepSeekProvider(LLMProvider):
                 text = message.content or "[no response]"
                 log.debug("Final response (%d chars): %s", len(text), text[:200])
                 return text
+
+        log.error("Agent exceeded max turns (%d) — returning fallback", _MAX_TURNS)
+        return _LOOP_FALLBACK

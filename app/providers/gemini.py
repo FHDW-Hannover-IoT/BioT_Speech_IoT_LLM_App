@@ -24,6 +24,9 @@ from app.providers.base import LLMProvider
 
 log = get_logger(__name__)
 
+_MAX_TURNS = 10
+_LOOP_FALLBACK = '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
+
 
 class GeminiProvider(LLMProvider):
     """
@@ -114,10 +117,7 @@ class GeminiProvider(LLMProvider):
             tools=formatted_tools,
         )
 
-        turn = 0
-
-        while True:
-            turn += 1
+        for turn in range(1, _MAX_TURNS + 1):
             log.debug("Gemini API call — turn %d", turn)
 
             response = self._client.models.generate_content(
@@ -131,14 +131,11 @@ class GeminiProvider(LLMProvider):
 
             log.debug("Gemini response — finish_reason=%s, parts=%d", candidate.finish_reason, len(parts))
 
-            # Check if any part is a function call
             function_call_parts = [p for p in parts if hasattr(p, "function_call") and p.function_call]
 
             if function_call_parts:
-                # Add Gemini's response to history
                 contents.append(candidate.content)
 
-                # Execute each function call and collect responses
                 tool_response_parts = []
                 for part in function_call_parts:
                     fc = part.function_call
@@ -156,15 +153,16 @@ class GeminiProvider(LLMProvider):
                         )
                     )
 
-                # Add tool results to history
                 contents.append(self._types.Content(
                     role="user",
                     parts=tool_response_parts,
                 ))
 
             else:
-                # Final text response
                 text_parts = [p.text for p in parts if hasattr(p, "text") and p.text]
                 text = " ".join(text_parts).strip() or "[no response]"
                 log.debug("Final response (%d chars): %s", len(text), text[:200])
                 return text
+
+        log.error("Agent exceeded max turns (%d) — returning fallback", _MAX_TURNS)
+        return _LOOP_FALLBACK
