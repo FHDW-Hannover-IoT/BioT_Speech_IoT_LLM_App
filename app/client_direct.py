@@ -10,28 +10,38 @@ except Exception:
 
 try:
     from openai import OpenAI  # pip install openai>=1.51
-except Exception as exc:
-    print("Missing dependency: openai. Install with `uv add openai` (or `pip install openai`).", file=sys.stderr)
+except Exception:
+    print(
+        "Missing dependency: openai. Install with `uv add openai` (or `pip install openai`).",
+        file=sys.stderr,
+    )
     raise
+
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
+
 
 def load_env():
     if load_dotenv:
         load_dotenv()
 
+
 def get_env(name: str, default: str = "") -> str:
     v = os.getenv(name)
     return v.strip() if v else default
+
 
 def make_client():
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL")  # optional (Azure/custom)
     if not api_key:
-        raise RuntimeError("Missing OPENAI_API_KEY. Put it in a .env file or the environment.")
+        raise RuntimeError(
+            "Missing OPENAI_API_KEY. Put it in a .env file or the environment."
+        )
     # The new SDK accepts base_url=... if you use Azure/custom endpoints.
     return OpenAI(api_key=api_key, base_url=base_url)
+
 
 def create_reply(client: OpenAI, model: str, message: str) -> str:
     """
@@ -51,7 +61,9 @@ def create_reply(client: OpenAI, model: str, message: str) -> str:
         for block in output:
             if getattr(block, "type", None) == "message":
                 for content in getattr(block, "content", []) or []:
-                    if getattr(content, "type", "") == "output_text" and getattr(content, "text", ""):
+                    if getattr(content, "type", "") == "output_text" and getattr(
+                        content, "text", ""
+                    ):
                         return content.text.strip()
 
     # Last resort: JSON dump (rare)
@@ -60,6 +72,7 @@ def create_reply(client: OpenAI, model: str, message: str) -> str:
     except Exception:
         pass
     raise RuntimeError("Empty response from model.")
+
 
 def main():
     # Ensure UTF-8 prints nicely on Windows
@@ -119,11 +132,14 @@ def main():
         except Exception as ex:
             s = str(ex)
             if "insufficient_quota" in s or "You exceeded your current quota" in s:
-                eprint("[error] Insufficient quota/billing for this key. Check your plan or try another key/model.")
+                eprint(
+                    "[error] Insufficient quota/billing for this key. Check your plan or try another key/model."
+                )
             else:
                 eprint(f"[error] {s}")
         finally:
             eprint(f"[elapsed] {time.time() - start:.2f}s")
+
 
 if __name__ == "__main__":
     main()

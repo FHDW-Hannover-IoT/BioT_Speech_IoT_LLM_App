@@ -49,6 +49,7 @@ sport_server: Optional[MCPServerStreamableHttp] = None
 filesystem_server: Optional[MCPServerStdio] = None
 sqlite_server: Optional[MCPServerStdio] = None
 
+
 async def build_agent():
     global sport_server, filesystem_server, sqlite_server
 
@@ -70,7 +71,10 @@ async def build_agent():
         await sport_server.connect()
         print("[mcp] sport recommender server connected successfully")
         sport_tools = await sport_server.list_tools()
-        print("[mcp] sport recommender tools:", ", ".join(getattr(t, "name", str(t)) for t in sport_tools[:8]) or "(none)")
+        print(
+            "[mcp] sport recommender tools:",
+            ", ".join(getattr(t, "name", str(t)) for t in sport_tools[:8]) or "(none)",
+        )
     except Exception as e:
         print(f"Error connecting to sport recommender server: {e}", file=sys.stderr)
         sport_server = None
@@ -80,15 +84,15 @@ async def build_agent():
     try:
         filesystem_server = MCPServerStdio(
             name="filesystem",
-            params={
-                "command": "npx",
-                "args": fs_args
-            },
+            params={"command": "npx", "args": fs_args},
         )
         await filesystem_server.connect()
         print("[mcp] filesystem server connected successfully")
         fs_tools = await filesystem_server.list_tools()
-        print("[mcp] filesystem tools:", ", ".join(getattr(t, "name", str(t)) for t in fs_tools[:8]) or "(none)")
+        print(
+            "[mcp] filesystem tools:",
+            ", ".join(getattr(t, "name", str(t)) for t in fs_tools[:8]) or "(none)",
+        )
     except Exception as e:
         print(f"Error connecting to filesystem server: {e}", file=sys.stderr)
         filesystem_server = None
@@ -108,13 +112,21 @@ async def build_agent():
             await sqlite_server.connect()
             print("[mcp] SQLite server connected successfully")
             sql_tools = await sqlite_server.list_tools()
-            print("[mcp] SQLite tools:", ", ".join(getattr(t, "name", str(t)) for t in sql_tools[:8]) or "(none)")
+            print(
+                "[mcp] SQLite tools:",
+                ", ".join(getattr(t, "name", str(t)) for t in sql_tools[:8])
+                or "(none)",
+            )
         except Exception as e:
             print(f"Error connecting to SQLite server: {e}", file=sys.stderr)
             sqlite_server = None
 
     # Build the agent with both servers (sqlite may be None if skipped)
-    mcp_servers = ([sport_server] if sport_server else []) + ([filesystem_server] if filesystem_server else []) + ([sqlite_server] if sqlite_server else [])
+    mcp_servers = (
+        ([sport_server] if sport_server else [])
+        + ([filesystem_server] if filesystem_server else [])
+        + ([sqlite_server] if sqlite_server else [])
+    )
     agent_kwargs = {
         "name": "Dev Copilot",
         "instructions": INSTRUCTIONS,
@@ -131,6 +143,7 @@ async def build_agent():
         agent_kwargs["model"] = MODEL
 
     return Agent(**agent_kwargs)
+
 
 async def main():
     agent = None
@@ -177,6 +190,7 @@ async def main():
                     except Exception as e:
                         print(f"Error during cleanup: {e}", file=sys.stderr)
             print("[mcp] disconnected")
+
 
 if __name__ == "__main__":
     try:

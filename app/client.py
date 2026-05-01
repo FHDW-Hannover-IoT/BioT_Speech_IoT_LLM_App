@@ -13,18 +13,24 @@ except Exception:
 try:
     import requests
 except ImportError:
-    print("Missing dependency: requests. Install with `uv add requests` (or `pip install requests`).")
+    print(
+        "Missing dependency: requests. Install with `uv add requests` (or `pip install requests`)."
+    )
     sys.exit(1)
+
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
+
 
 def load_env():
     if load_dotenv:
         load_dotenv()
 
+
 def get_server_url() -> str:
     return os.getenv("CHAT_SERVER_URL", "http://127.0.0.1:8001/chat").strip()
+
 
 def check_health(base_url: str, timeout: float = 5.0) -> None:
     # If user passed full /chat URL, derive health path; else assume base ends with /chat
@@ -42,6 +48,7 @@ def check_health(base_url: str, timeout: float = 5.0) -> None:
             eprint(f"[health] HTTP {r.status_code}: {r.text.strip()}")
     except Exception as ex:
         eprint(f"[health] Could not reach server at {health_url}: {ex}")
+
 
 def post_chat(server_url: str, message: str, timeout: float = 30.0) -> Optional[str]:
     try:
@@ -67,6 +74,7 @@ def post_chat(server_url: str, message: str, timeout: float = 30.0) -> Optional[
     except Exception as ex:
         return f"[error] {ex}"
 
+
 def main():
     # Ensure stdout prints UTF-8 on Windows if possible
     try:
@@ -79,7 +87,9 @@ def main():
 
     eprint("=== Chat Client ===")
     eprint(f"Server: {server_url}")
-    eprint("Type your message and press Enter. Commands: /quit, /exit, /health, /set <url>")
+    eprint(
+        "Type your message and press Enter. Commands: /quit, /exit, /health, /set <url>"
+    )
     eprint("Press Ctrl-C to exit.\n")
 
     # quick health check
@@ -124,6 +134,7 @@ def main():
         else:
             print(f"Assistant> {reply}")
         eprint(f"[elapsed] {elapsed:.2f}s")
+
 
 if __name__ == "__main__":
     main()

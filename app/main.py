@@ -7,7 +7,12 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 try:
-    from app.agent_cli_mcp import build_agent, sport_server, filesystem_server, sqlite_server
+    from app.agent_cli_mcp import (
+        build_agent,
+        sport_server,
+        filesystem_server,
+        sqlite_server,
+    )
     from agents import Runner
 except Exception as e:
     print("Failed to import from agent_cli_mcp / agents:", e, file=sys.stderr)
@@ -15,11 +20,14 @@ except Exception as e:
 
 load_dotenv()
 
+
 class ChatRequest(BaseModel):
     message: str
 
+
 class ChatResponse(BaseModel):
     reply: str
+
 
 @asynccontextmanager
 async def lifespan(server: FastAPI):
@@ -42,15 +50,18 @@ async def lifespan(server: FastAPI):
         except Exception as exception:
             print(f"[shutdown] error: {exception}", file=sys.stderr)
 
+
 app = FastAPI(
     title="Agent HTTP Server (FastAPI + OpenAI Agents SDK)",
     version="1.0.0",
     lifespan=lifespan,
 )
 
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
