@@ -1,0 +1,61 @@
+name: Shared CI
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.9.5"
+  PYTHON_VERSION: "3.11"
+  RUFF_VERSION: "0.15.12"
+
+jobs:
+  qa:
+    name: QA
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --frozen --python ${{ env.PYTHON_VERSION }}
+
+      - name: Ruff lint
+        run: uvx ruff==${{ env.RUFF_VERSION }} check .
+
+      - name: Ruff format check
+        run: uvx ruff==${{ env.RUFF_VERSION }} format --check .
+
+      - name: Compile Python files
+        run: uv run --frozen --no-sync python -m compileall app mcp_server rag tests
+
+  test:
+    name: Test (${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --frozen --python ${{ matrix.python-version }}
+
+      - name: Run tests
+        run: uv run --frozen --no-sync python -m unittest discover -s tests -v
