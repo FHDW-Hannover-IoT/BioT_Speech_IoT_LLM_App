@@ -336,7 +336,10 @@ class SensorAgent:
             response = httpx.post(
                 self._mcp_url,          # e.g. http://localhost:8002/mcp
                 json=payload,
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
                 timeout=settings.mcp_tool_timeout_secs,
             )
             response.raise_for_status()
