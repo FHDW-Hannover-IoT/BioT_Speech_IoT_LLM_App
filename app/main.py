@@ -46,6 +46,7 @@ log = get_logger(__name__)
 
 # ── Request / Response models ─────────────────────────────────────────────────
 
+
 class ChatRequest(BaseModel):
     message: str
 
@@ -234,6 +235,7 @@ async def lifespan(app: FastAPI):
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
+
 app = FastAPI(
     title="BioT Sensor Assistant",
     description="LLM-powered IoT sensor assistant for the BioT Speech IoT project.",
@@ -267,6 +269,7 @@ def get_repository() -> SensorRepository:
 # ── Core endpoints ────────────────────────────────────────────────────────────
 
 @app.get("/health", summary="Liveness check")
+@app.get("/health")
 async def health():
     return {"status": "ok"}
 

@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  checks:
+    uses: ./.github/workflows/shared-ci.yml
+
+  package:
+    name: Package source snapshot
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Create source archive
+        run: |
+          set -euo pipefail
+          ref_name="${GITHUB_REF_NAME:-${GITHUB_SHA}}"
+          repo_name="${GITHUB_REPOSITORY#*/}"
+          git archive --format=zip --output "${repo_name}-${ref_name}.zip" HEAD
+
+      - name: Upload source artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: source-archive
+          path: "*.zip"
+          if-no-files-found: error
+
+      - name: Attach source archive to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.zip"
