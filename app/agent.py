@@ -100,11 +100,28 @@ Action types
        "tts": "Filter cleared" }
 
 ────────────────────────────────────────────────────────────────────────────────
+NAVIGATION vs DATA QUERY — CRITICAL DISTINCTION
+────────────────────────────────────────────────────────────────────────────────
+
+action=navigate is ONLY for pure navigation commands:
+  "show gyro", "open the graph", "go to settings", "show events"
+  → screen only, no data expected, tts says "Opening ..."
+
+action=answer with tool use is for ALL data/value questions:
+  "what is the magnetic value", "what are the current readings",
+  "tell me the gyro X", "is there any accel data", "how high was the acceleration"
+  → ALWAYS call a tool first, NEVER return action=navigate for these.
+
+If the transcript mentions "value", "reading", "current", "latest", "how much",
+"how high", "what is", "tell me" combined with a sensor name → action=answer + tool.
+
+────────────────────────────────────────────────────────────────────────────────
 HANDLING SPECIFIC USER INTENTS
 ────────────────────────────────────────────────────────────────────────────────
 
-• "Tell value (sensor) (axis?)"
-  → call get_value_for_axis or get_latest_sensor_data, respond with action=answer.
+• "What is the [sensor] value?" / "Tell value (sensor) (axis?)"
+  → call get_value_for_axis (if axis given) or get_latest_sensor_data.
+  → Return action=answer. NEVER action=navigate for value questions.
 
 • "Tell value mic" / "mic level" / any microphone query
   → The KY-037 mic hardware was removed. Respond:
@@ -320,11 +337,15 @@ class SensorAgent:
         The endpoint is the base /mcp path — NOT /tools/call (which does not
         exist in the FastMCP Streamable HTTP spec).
         """
-        log.info("Dispatching tool via MCP JSON-RPC: %s — inputs: %s", name, inputs)
+        rpc_id = _uuid.uuid4().hex[:8]
+        log.info(
+            "MCP → tool=%s  inputs=%s  url=%s  id=%s",
+            name, inputs, self._mcp_url, rpc_id,
+        )
 
         payload = {
             "jsonrpc": "2.0",
-            "id": _uuid.uuid4().hex,
+            "id": rpc_id,
             "method": "tools/call",
             "params": {
                 "name": name,
@@ -332,15 +353,22 @@ class SensorAgent:
             },
         }
 
+        import time as _time
+        t0 = _time.monotonic()
         try:
             response = httpx.post(
-                self._mcp_url,          # e.g. http://localhost:8002/mcp
+                self._mcp_url,
                 json=payload,
                 headers={
                     "Content-Type": "application/json",
                     "Accept": "application/json",
                 },
                 timeout=settings.mcp_tool_timeout_secs,
+            )
+            elapsed_ms = int((_time.monotonic() - t0) * 1000)
+            log.info(
+                "MCP ← tool=%s  status=%d  ms=%d  id=%s",
+                name, response.status_code, elapsed_ms, rpc_id,
             )
             response.raise_for_status()
             data = response.json()
@@ -351,22 +379,31 @@ class SensorAgent:
             texts = [b["text"] for b in content if b.get("type") == "text"]
             result = "\n".join(texts) if texts else str(result_data)
 
-            log.debug("MCP result (%d chars): %s", len(result), result[:200])
+            log.debug("MCP result (%d chars): %s", len(result), result[:300])
             return result
 
         except httpx.ConnectError:
+            elapsed_ms = int((_time.monotonic() - t0) * 1000)
             msg = (
-                f"MCP server unreachable at {self._mcp_url}. "
+                f"MCP server unreachable at {self._mcp_url} (ms={elapsed_ms}). "
                 "Ensure sensor_mcp_server.py is running."
             )
-            log.error(msg)
+            log.error("MCP ✗ ConnectError  tool=%s  url=%s  ms=%d", name, self._mcp_url, elapsed_ms)
             return msg
 
         except httpx.HTTPStatusError as exc:
+            elapsed_ms = int((_time.monotonic() - t0) * 1000)
             msg = f"MCP server HTTP {exc.response.status_code}: {exc.response.text[:200]}"
-            log.error("MCP HTTP error for tool %s: %s", name, msg)
+            log.error(
+                "MCP ✗ HTTPError  tool=%s  status=%d  ms=%d  body=%s",
+                name, exc.response.status_code, elapsed_ms, exc.response.text[:200],
+            )
             return msg
 
         except Exception as exc:
-            log.error("Tool dispatch error %s: %s", name, exc, exc_info=True)
+            elapsed_ms = int((_time.monotonic() - t0) * 1000)
+            log.error(
+                "MCP ✗ exception  tool=%s  ms=%d  err=%s",
+                name, elapsed_ms, exc, exc_info=True,
+            )
             return f"Tool dispatch error: {exc}"
