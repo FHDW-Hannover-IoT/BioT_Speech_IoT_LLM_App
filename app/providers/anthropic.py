@@ -4,7 +4,6 @@ app/providers/anthropic.py
 Anthropic Claude implementation of the LLMProvider interface.
 """
 
-import sys
 from typing import Any, Callable
 
 import anthropic
