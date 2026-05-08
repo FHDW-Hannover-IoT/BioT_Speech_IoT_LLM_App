@@ -67,6 +67,57 @@ class SensorDataResponse(BaseModel):
 
 # ── Startup helpers ───────────────────────────────────────────────────────────
 
+def _probe_api_key() -> None:
+    """
+    Make a real 1-token call to the configured LLM provider to confirm the
+    API key is valid before accepting any requests.  Crashes with SystemExit
+    on failure so the problem is obvious at startup rather than mid-demo.
+    """
+    provider = settings.llm_provider
+    api_key  = settings.llm_api_key
+    model    = settings.llm_model
+    log.info("Probing API key (provider=%s, model=%s) …", provider, model)
+
+    try:
+        if provider == "anthropic":
+            import anthropic as _anthropic
+            _anthropic.Anthropic(api_key=api_key).messages.create(
+                model=model, max_tokens=1,
+                messages=[{"role": "user", "content": "hi"}],
+            )
+
+        elif provider in ("openai", "deepseek"):
+            from openai import OpenAI as _OpenAI
+            _OpenAI(
+                api_key=api_key,
+                base_url="https://api.deepseek.com/v1" if provider == "deepseek" else None,
+            ).chat.completions.create(
+                model=model, max_tokens=1,
+                messages=[{"role": "user", "content": "hi"}],
+            )
+
+        elif provider == "gemini":
+            import google.generativeai as _genai
+            _genai.configure(api_key=api_key)
+            _genai.GenerativeModel(model).generate_content(
+                "hi", generation_config={"max_output_tokens": 1},
+            )
+
+        else:
+            log.warning("API key probe not implemented for provider=%r — skipping", provider)
+            return
+
+        log.info("API key OK (provider=%s, model=%s)", provider, model)
+
+    except Exception as exc:
+        log.error(
+            "API key check FAILED (provider=%s, model=%s): %s\n"
+            "  → Check LLM_API_KEY in .env and confirm you have access to that model.",
+            provider, model, exc,
+        )
+        raise SystemExit(1) from exc
+
+
 def _start_mcp_server() -> subprocess.Popen:
     """
     Launch the MCP sensor server as a subprocess on MCP_SERVER_PORT.
@@ -128,6 +179,9 @@ def _start_mcp_server() -> subprocess.Popen:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info("Starting BioT Sensor Assistant — %s", settings)
+
+    # 0. Verify the API key is valid before starting anything else
+    _probe_api_key()
 
     # 1. Initialise database layer (persistent write connection, WAL mode, schema)
     db_context = DbContext(settings.sqlite_db_path)
