@@ -25,7 +25,9 @@ from app.providers.base import LLMProvider
 log = get_logger(__name__)
 
 _MAX_TURNS = 10
-_LOOP_FALLBACK = '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
+_LOOP_FALLBACK = (
+    '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
+)
 
 
 class GeminiProvider(LLMProvider):
@@ -48,6 +50,7 @@ class GeminiProvider(LLMProvider):
         try:
             from google import genai
             from google.genai import types
+
             self._genai = genai
             self._types = types
             self._client = genai.Client(api_key=api_key)
@@ -84,7 +87,9 @@ class GeminiProvider(LLMProvider):
                                 type=self._types.Type.STRING,
                                 description=prop_val.get("description", ""),
                             )
-                            for prop_name, prop_val in schema.get("properties", {}).items()
+                            for prop_name, prop_val in schema.get(
+                                "properties", {}
+                            ).items()
                         },
                         required=schema.get("required", []),
                     ),
@@ -107,10 +112,11 @@ class GeminiProvider(LLMProvider):
         formatted_tools = self.format_tools(tools)
 
         # Build the conversation history
-        contents = [self._types.Content(
-            role="user",
-            parts=[self._types.Part(text=user_message)]
-        )]
+        contents = [
+            self._types.Content(
+                role="user", parts=[self._types.Part(text=user_message)]
+            )
+        ]
 
         config = self._types.GenerateContentConfig(
             system_instruction=system_prompt,
@@ -129,9 +135,15 @@ class GeminiProvider(LLMProvider):
             candidate = response.candidates[0]
             parts = candidate.content.parts
 
-            log.debug("Gemini response — finish_reason=%s, parts=%d", candidate.finish_reason, len(parts))
+            log.debug(
+                "Gemini response — finish_reason=%s, parts=%d",
+                candidate.finish_reason,
+                len(parts),
+            )
 
-            function_call_parts = [p for p in parts if hasattr(p, "function_call") and p.function_call]
+            function_call_parts = [
+                p for p in parts if hasattr(p, "function_call") and p.function_call
+            ]
 
             if function_call_parts:
                 contents.append(candidate.content)
@@ -153,10 +165,12 @@ class GeminiProvider(LLMProvider):
                         )
                     )
 
-                contents.append(self._types.Content(
-                    role="user",
-                    parts=tool_response_parts,
-                ))
+                contents.append(
+                    self._types.Content(
+                        role="user",
+                        parts=tool_response_parts,
+                    )
+                )
 
             else:
                 text_parts = [p.text for p in parts if hasattr(p, "text") and p.text]

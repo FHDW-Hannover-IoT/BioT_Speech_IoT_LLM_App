@@ -25,7 +25,9 @@ class LLMProvider(ABC):
     """
 
     @abstractmethod
-    def run(self, user_message: str, tools: list[dict[str, Any]], system_prompt: str) -> str:
+    def run(
+        self, user_message: str, tools: list[dict[str, Any]], system_prompt: str
+    ) -> str:
         """
         Send a user message to the LLM and return the final text reply.
 

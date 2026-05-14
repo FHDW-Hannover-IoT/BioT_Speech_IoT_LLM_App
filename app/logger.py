@@ -32,8 +32,8 @@ from pathlib import Path
 
 _LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 _LOG_FILE = _LOG_DIR / "biot.log"
-_MAX_BYTES = 5 * 1024 * 1024   # 5 MB per log file
-_BACKUP_COUNT = 3               # keep biot.log, biot.log.1, biot.log.2, biot.log.3
+_MAX_BYTES = 5 * 1024 * 1024  # 5 MB per log file
+_BACKUP_COUNT = 3  # keep biot.log, biot.log.1, biot.log.2, biot.log.3
 _LOG_LEVEL = logging.DEBUG
 
 # ── Formatters ────────────────────────────────────────────────────────────────

@@ -67,7 +67,8 @@ class SensorMqttSubscriber:
 
         log.info(
             "SensorMqttSubscriber configured (broker=%s:%d)",
-            broker_host, broker_port,
+            broker_host,
+            broker_port,
         )
 
     # ── Public interface ──────────────────────────────────────────────────────
@@ -108,7 +109,8 @@ class SensorMqttSubscriber:
             except Exception as exc:
                 log.error(
                     "MQTT subscriber error: %s — retrying in %ds",
-                    exc, settings.mqtt_reconnect_delay_secs,
+                    exc,
+                    settings.mqtt_reconnect_delay_secs,
                 )
                 time.sleep(settings.mqtt_reconnect_delay_secs)
 
@@ -121,13 +123,15 @@ class SensorMqttSubscriber:
             client_id=client_id,
             protocol=mqtt.MQTTv5,
         )
-        self._client.on_connect    = self._on_connect
+        self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
-        self._client.on_message    = self._on_message
+        self._client.on_message = self._on_message
 
         log.info(
             "Connecting to MQTT broker at %s:%d (client_id=%s)",
-            self._broker_host, self._broker_port, client_id,
+            self._broker_host,
+            self._broker_port,
+            client_id,
         )
         self._client.connect(self._broker_host, self._broker_port, keepalive=120)
         self._client.loop_forever()
@@ -153,7 +157,7 @@ class SensorMqttSubscriber:
 
     def _on_message(self, client, userdata, msg) -> None:
         """Parse every incoming MQTT message and write to the repository."""
-        topic   = msg.topic
+        topic = msg.topic
         payload = msg.payload.decode("utf-8", errors="replace").strip()
         log.debug("MQTT message: %s = %r", topic, payload[:80])
 
@@ -167,9 +171,7 @@ class SensorMqttSubscriber:
             else:
                 log.warning("Unhandled topic: %s", topic)
         except Exception as exc:
-            log.error(
-                "Error processing message on %s: %s", topic, exc, exc_info=True
-            )
+            log.error("Error processing message on %s: %s", topic, exc, exc_info=True)
 
     # ── Payload parsers ───────────────────────────────────────────────────────
 
@@ -200,6 +202,7 @@ class SensorMqttSubscriber:
 
 # ── Payload helpers ───────────────────────────────────────────────────────────
 
+
 def _parse_triplets(payload: str) -> list[tuple[float, float, float]]:
     """Split a comma-separated payload into (x, y, z) float triplets."""
     parts = [p.strip() for p in payload.split(",")]
@@ -223,7 +226,7 @@ if __name__ == "__main__":
     log.info("DB     : %s", settings.sqlite_db_path)
     log.info("Press Ctrl+C to stop")
 
-    ctx  = DbContext(settings.sqlite_db_path)
+    ctx = DbContext(settings.sqlite_db_path)
     ctx.initialize()
     repo = SensorRepository(ctx)
 

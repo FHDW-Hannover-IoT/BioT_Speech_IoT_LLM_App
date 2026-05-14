@@ -51,21 +51,37 @@ def create_provider(
 
     if name == "anthropic":
         from app.providers.anthropic import AnthropicProvider
-        return AnthropicProvider(api_key=api_key, model=model, tool_dispatcher=tool_dispatcher)
+
+        return AnthropicProvider(
+            api_key=api_key, model=model, tool_dispatcher=tool_dispatcher
+        )
 
     if name == "openai":
         from app.providers.openai import OpenAIProvider
-        return OpenAIProvider(api_key=api_key, model=model, tool_dispatcher=tool_dispatcher)
+
+        return OpenAIProvider(
+            api_key=api_key, model=model, tool_dispatcher=tool_dispatcher
+        )
 
     if name == "deepseek":
         from app.providers.deepseek import DeepSeekProvider
-        return DeepSeekProvider(api_key=api_key, model=model, tool_dispatcher=tool_dispatcher)
+
+        return DeepSeekProvider(
+            api_key=api_key, model=model, tool_dispatcher=tool_dispatcher
+        )
 
     if name == "gemini":
         from app.providers.gemini import GeminiProvider
-        return GeminiProvider(api_key=api_key, model=model, tool_dispatcher=tool_dispatcher)
 
-    log.error("Unsupported LLM provider: %r (supported: %s)", provider_name, ", ".join(_SUPPORTED))
+        return GeminiProvider(
+            api_key=api_key, model=model, tool_dispatcher=tool_dispatcher
+        )
+
+    log.error(
+        "Unsupported LLM provider: %r (supported: %s)",
+        provider_name,
+        ", ".join(_SUPPORTED),
+    )
     raise ValueError(
         f"Unknown LLM provider: {provider_name!r}. "
         f"Supported providers: {', '.join(_SUPPORTED)}"
