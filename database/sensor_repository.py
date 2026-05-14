@@ -157,6 +157,40 @@ class SensorRepository:
         wrapped = f"SELECT * FROM ({sql.rstrip('; ')}) LIMIT {limit}"
         return self._ctx.execute_read(wrapped)
 
+    def bulk_insert_accel(self, rows: list[tuple[int, float, float, float]]) -> None:
+        self._ctx.execute_write_many(
+            "INSERT INTO accel_data (timestamp, accelX, accelY, accelZ) VALUES (?,?,?,?)",
+            rows,
+        )
+
+    def bulk_insert_gyro(self, rows: list[tuple[int, float, float, float]]) -> None:
+        self._ctx.execute_write_many(
+            "INSERT INTO gyro_data (timestamp, gyroX, gyroY, gyroZ) VALUES (?,?,?,?)",
+            rows,
+        )
+
+    def bulk_insert_magnet(self, rows: list[tuple[int, float, float, float]]) -> None:
+        self._ctx.execute_write_many(
+            "INSERT INTO magnet_data (timestamp, magnetX, magnetY, magnetZ) VALUES (?,?,?,?)",
+            rows,
+        )
+
+    def get_max_id(self, table: str) -> int:
+        """Return the current MAX(id) for a table, or 0 if the table is empty."""
+        _check_table(table)
+        rows = self._ctx.execute_read(
+            f"SELECT COALESCE(MAX(id), 0) AS m FROM {table}"
+        )
+        return rows[0]["m"]
+
+    def delete_id_range(self, table: str, gt_id: int, le_id: int) -> int:
+        """Delete rows where gt_id < id <= le_id. Returns the number of rows deleted."""
+        _check_table(table)
+        return self._ctx.execute_write(
+            f"DELETE FROM {table} WHERE id > ? AND id <= ?",
+            (gt_id, le_id),
+        )
+
     def get_count_since(self, table: str, since_ms: int) -> int:
         """Return row count for rows with timestamp >= since_ms."""
         _check_table(table)

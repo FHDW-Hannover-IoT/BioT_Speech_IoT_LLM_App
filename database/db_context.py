@@ -125,14 +125,16 @@ class DbContext:
 
     # ── Writes ────────────────────────────────────────────────────────────────
 
-    def execute_write(self, sql: str, params: tuple = ()) -> None:
+    def execute_write(self, sql: str, params: tuple = ()) -> int:
         """
         Execute one write statement inside a transaction.
         Commits on success, rolls back on any exception.
+        Returns the number of rows affected (cursor.rowcount).
         """
         with self._lock:
             with self._write_conn:
-                self._write_conn.execute(sql, params)
+                cur = self._write_conn.execute(sql, params)
+                return cur.rowcount
 
     def execute_write_many(self, sql: str, param_list: list[tuple]) -> None:
         """Execute multiple writes in a single atomic transaction."""

@@ -115,6 +115,11 @@ class Settings:
         self.server_host: str = os.getenv("SERVER_HOST", "0.0.0.0").strip()
         self.server_port: int = int(os.getenv("SERVER_PORT", "8001"))
 
+        # ── Seeding ───────────────────────────────────────────────────────────
+        self.seed_on_startup: bool = os.getenv("SEED_ON_STARTUP", "true").strip().lower() not in ("false", "0", "no")
+        self.seed_hours: int = int(os.getenv("SEED_HOURS", "24"))
+        self.seed_random_seed: int = int(os.getenv("SEED_RANDOM_SEED", "42"))
+
         # ── Misc ──────────────────────────────────────────────────────────────
         self.mcp_fs_roots: str = os.getenv("MCP_FS_ROOTS", "").strip()
 

@@ -40,6 +40,7 @@ from config.settings import settings
 from database.db_context import DbContext
 from database.sensor_repository import SensorRepository
 from mcp_server.mqtt_subscriber import SensorMqttSubscriber
+from seeding import DatabaseSeeder
 
 log = get_logger(__name__)
 
@@ -211,10 +212,20 @@ async def lifespan(app: FastAPI):
     repository = SensorRepository(db_context)
     app.state.repository = repository
 
-    # 2. Start MCP sensor server subprocess
+    # 2. Seed the database with fake historical data (dev/demo — skipped when SEED_ON_STARTUP=false)
+    if settings.seed_on_startup:
+        seeder = DatabaseSeeder(
+            repository=repository,
+            hours=settings.seed_hours,
+            rng_seed=settings.seed_random_seed,
+        )
+        seeder.seed()
+        app.state.seeder = seeder
+
+    # 3. Start MCP sensor server subprocess
     app.state.mcp_proc = _start_mcp_server()
 
-    # 3. Initialise LLM agent (connects to MCP server via HTTP)
+    # 4. Initialise LLM agent (connects to MCP server via HTTP)
     app.state.agent = SensorAgent(
         provider_name=settings.llm_provider,
         api_key=settings.llm_api_key,
@@ -228,7 +239,7 @@ async def lifespan(app: FastAPI):
         settings.mcp_server_url,
     )
 
-    # 4. Start MQTT subscriber (writes live sensor data via SensorRepository)
+    # 5. Start MQTT subscriber (writes live sensor data via SensorRepository)
     subscriber = SensorMqttSubscriber(
         broker_host=settings.mqtt_broker_host,
         broker_port=settings.mqtt_broker_port,
@@ -251,6 +262,8 @@ async def lifespan(app: FastAPI):
     if hasattr(app.state, "mcp_proc"):
         app.state.mcp_proc.terminate()
         log.info("MCP server process terminated")
+    if hasattr(app.state, "seeder"):
+        app.state.seeder.unseed()
     if hasattr(app.state, "db_context"):
         app.state.db_context.close()
 
@@ -354,7 +367,7 @@ async def data_accel(
     to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
     repo: SensorRepository = Depends(get_repository),
 ):
-    rows = await asyncio.to_thread(repo.get_range, "accel_data", from_ms, to_ms)
+    rows = await asyncio.to_thread(repo.get_range, "accel_data", from_ms, to_ms, 100_000)
     return SensorDataResponse(
         rows=[
             SensorRow(
@@ -377,7 +390,7 @@ async def data_gyro(
     to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
     repo: SensorRepository = Depends(get_repository),
 ):
-    rows = await asyncio.to_thread(repo.get_range, "gyro_data", from_ms, to_ms)
+    rows = await asyncio.to_thread(repo.get_range, "gyro_data", from_ms, to_ms, 100_000)
     return SensorDataResponse(
         rows=[
             SensorRow(
@@ -400,7 +413,7 @@ async def data_magnet(
     to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
     repo: SensorRepository = Depends(get_repository),
 ):
-    rows = await asyncio.to_thread(repo.get_range, "magnet_data", from_ms, to_ms)
+    rows = await asyncio.to_thread(repo.get_range, "magnet_data", from_ms, to_ms, 100_000)
     return SensorDataResponse(
         rows=[
             SensorRow(
