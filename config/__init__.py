@@ -1,0 +1,1 @@
+"""app package — BioT Sensor Assistant FastAPI application."""

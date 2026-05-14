@@ -1,57 +1,48 @@
-# Python
+# ── Secrets — NEVER commit these ─────────────────────────────────────────────
+.env
+
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
+*.pyo
+*.pydx
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+dist/
+build/
+.eggs/
 
-# Virtual environments
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
 venv/
 ENV/
 env/
-.venv
 
-# IDE
+# ── Database files (generated at runtime, not source code) ───────────────────
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
-.DS_Store
 
-# Project-specific
-data/demo.db
-data/demo.db-shm
-data/demo.db-wal
-sample_files/
-*.db
-*.db-shm
-*.db-wal
-
-# Node modules (for MCP servers via npx)
+# ── Node (used by npx MCP servers) ───────────────────────────────────────────
 node_modules/
 package-lock.json
 
-# Logs
+# ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
 logs/
 
-# OS
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
 Thumbs.db
 .DS_Store
+
+# ── Sample files (local only) ─────────────────────────────────────────────────
+sample_files/
