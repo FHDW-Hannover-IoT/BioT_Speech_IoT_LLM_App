@@ -10,11 +10,10 @@ class FastAPISmokeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await health(), {"status": "ok"})
 
     async def test_chat_rejects_blank_message_before_agent_access(self):
-        with self.assertRaises(HTTPException) as exc:
-            await chat(ChatRequest(message="   "))
-
-        self.assertEqual(exc.exception.status_code, 400)
-        self.assertEqual(exc.exception.detail, "message must be non-empty")
+    with self.assertRaises(HTTPException) as exc:
+        await chat(ChatRequest(message="   "), agent=MagicMock())
+    self.assertEqual(exc.exception.status_code, 400)
+    self.assertEqual(exc.exception.detail, "message must not be empty")
 
 
 if __name__ == "__main__":
