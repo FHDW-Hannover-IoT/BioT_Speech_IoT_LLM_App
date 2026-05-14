@@ -43,7 +43,7 @@ log = get_logger(__name__)
 # execute_read() opens fresh mode=ro connections per query.
 
 _db_context = DbContext(settings.sqlite_db_path)
-_repo       = SensorRepository(_db_context)
+_repo = SensorRepository(_db_context)
 
 # ── MCP Server instance ───────────────────────────────────────────────────────
 
@@ -59,30 +59,31 @@ mcp = FastMCP(
 # ── Sensor → table mapping ────────────────────────────────────────────────────
 
 _SENSOR_TABLE = {
-    "accel":          "accel_data",
-    "accelerometer":  "accel_data",
-    "bewegung":       "accel_data",
+    "accel": "accel_data",
+    "accelerometer": "accel_data",
+    "bewegung": "accel_data",
     "beschleunigung": "accel_data",
-    "gyro":           "gyro_data",
-    "gyroscope":      "gyro_data",
-    "gyroskop":       "gyro_data",
-    "magnet":         "magnet_data",
-    "magnetometer":   "magnet_data",
-    "hall":           "magnet_data",
-    "magnetfeld":     "magnet_data",
-    "ereignis":       "ereignis_data",
-    "events":         "ereignis_data",
-    "event":          "ereignis_data",
+    "gyro": "gyro_data",
+    "gyroscope": "gyro_data",
+    "gyroskop": "gyro_data",
+    "magnet": "magnet_data",
+    "magnetometer": "magnet_data",
+    "hall": "magnet_data",
+    "magnetfeld": "magnet_data",
+    "ereignis": "ereignis_data",
+    "events": "ereignis_data",
+    "event": "ereignis_data",
 }
 
 _AXIS_COLUMNS = {
-    "accel_data":  {"x": "accelX",  "y": "accelY",  "z": "accelZ"},
-    "gyro_data":   {"x": "gyroX",   "y": "gyroY",   "z": "gyroZ"},
+    "accel_data": {"x": "accelX", "y": "accelY", "z": "accelZ"},
+    "gyro_data": {"x": "gyroX", "y": "gyroY", "z": "gyroZ"},
     "magnet_data": {"x": "magnetX", "y": "magnetY", "z": "magnetZ"},
 }
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
 
 def _resolve_table(sensor: str) -> str:
     table = _SENSOR_TABLE.get(sensor.lower().strip())
@@ -97,10 +98,8 @@ def _rows_to_text(rows: list[dict], overflow: bool) -> str:
         return "No data found. The table may be empty."
     col_names = list(rows[0].keys())
     header = " | ".join(col_names)
-    sep    = "-" * len(header)
-    lines  = [header, sep] + [
-        " | ".join(str(row[c]) for c in col_names) for row in rows
-    ]
+    sep = "-" * len(header)
+    lines = [header, sep] + [" | ".join(str(row[c]) for c in col_names) for row in rows]
     if overflow:
         lines.append(f"... (showing first {settings.mcp_max_rows} rows only)")
     return "\n".join(lines)
@@ -114,6 +113,7 @@ def _format_age(ts_ms: int) -> str:
 
 
 # ── MCP Tools ─────────────────────────────────────────────────────────────────
+
 
 @mcp.tool()
 def get_latest_sensor_data(sensor: str) -> str:
@@ -129,13 +129,13 @@ def get_latest_sensor_data(sensor: str) -> str:
     log.info("MCP tool: get_latest_sensor_data(sensor=%r)", sensor)
     try:
         table = _resolve_table(sensor)
-        row   = _repo.get_latest(table)
+        row = _repo.get_latest(table)
 
         if not row:
             return f"No data in {table} yet. Is the MQTT subscriber running?"
 
-        ts_ms  = row.get("timestamp", 0)
-        lines  = [" | ".join(str(v) for v in row.values())]
+        ts_ms = row.get("timestamp", 0)
+        lines = [" | ".join(str(v) for v in row.values())]
         header = " | ".join(row.keys())
         result = f"{header}\n{'-' * len(header)}\n{lines[0]}"
         return f"{result}\n\nRecorded: {_format_age(ts_ms)}"
@@ -172,7 +172,7 @@ def get_value_for_axis(sensor: str, axis: str) -> str:
             return f"Unknown axis {axis!r} for {sensor!r}. Valid: x, y, z."
 
         column = axis_map[axis_key]
-        rows   = _db_context.execute_read(
+        rows = _db_context.execute_read(
             f"SELECT timestamp, {column} FROM {table} ORDER BY timestamp DESC LIMIT 1"
         )
 
@@ -208,19 +208,22 @@ def get_sensor_history(sensor: str, minutes: int = 10) -> str:
     """
     log.info("MCP tool: get_sensor_history(sensor=%r, minutes=%d)", sensor, minutes)
     try:
-        table    = _resolve_table(sensor)
+        table = _resolve_table(sensor)
         if table == "ereignis_data":
             return "For event history use get_event_log() instead."
 
         since_ms = int((time.time() - minutes * 60) * 1000)
-        limit    = settings.mcp_max_rows
+        limit = settings.mcp_max_rows
 
-        rows     = _repo.get_history(table, since_ms, limit + 1)
+        rows = _repo.get_history(table, since_ms, limit + 1)
         overflow = len(rows) > limit
-        display  = rows[:limit]
+        display = rows[:limit]
 
-        numeric_cols = [c for c in (display[0].keys() if display else [])
-                        if c not in ("id", "timestamp")]
+        numeric_cols = [
+            c
+            for c in (display[0].keys() if display else [])
+            if c not in ("id", "timestamp")
+        ]
         stats = _repo.get_stats(table, since_ms, numeric_cols)
 
         summary_lines = [f"\nSummary for last {minutes} min ({len(display)} rows):"]
@@ -258,9 +261,9 @@ def get_db_schema() -> str:
             )
 
         descriptions = {
-            "accel_data":    "MPU-6050 accelerometer — accelX/Y/Z in g-force",
-            "gyro_data":     "MPU-6050 gyroscope — gyroX/Y/Z in degrees/second",
-            "magnet_data":   "A3144 hall effect sensor — magnetX/Y/Z",
+            "accel_data": "MPU-6050 accelerometer — accelX/Y/Z in g-force",
+            "gyro_data": "MPU-6050 gyroscope — gyroX/Y/Z in degrees/second",
+            "magnet_data": "A3144 hall effect sensor — magnetX/Y/Z",
             "ereignis_data": "Threshold events — sensorType, value, axis",
         }
 
@@ -299,7 +302,7 @@ def get_event_log(limit: int = 10) -> str:
         rows = _repo.get_history("ereignis_data", 0, limit)
 
         today_start_ms = int((time.time() - (time.time() % 86400)) * 1000)
-        today_count    = _repo.get_count_since("ereignis_data", today_start_ms)
+        today_count = _repo.get_count_since("ereignis_data", today_start_ms)
 
         result = _rows_to_text(rows, False)
         return f"{result}\n\nEvents today: {today_count}"
@@ -334,7 +337,7 @@ def get_row_count(table: str = "all") -> str:
 
         lines = []
         for t, info in sorted(counts.items()):
-            cnt    = info["count"]
+            cnt = info["count"]
             latest = info["latest"]
             if latest:
                 lines.append(f"{t}: {cnt} rows, latest {_format_age(latest)}")
@@ -373,7 +376,7 @@ def execute_query(sql: str) -> str:
 
     try:
         limit = settings.mcp_max_rows
-        rows  = _repo.execute_select(sql, limit + 1)
+        rows = _repo.execute_select(sql, limit + 1)
         overflow = len(rows) > limit
         log.info("execute_query returned %d rows", min(len(rows), limit))
         return _rows_to_text(rows[:limit], overflow)

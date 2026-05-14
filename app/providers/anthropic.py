@@ -14,7 +14,9 @@ from app.providers.base import LLMProvider
 log = get_logger(__name__)
 
 _MAX_TURNS = 10
-_LOOP_FALLBACK = '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
+_LOOP_FALLBACK = (
+    '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
+)
 
 
 class AnthropicProvider(LLMProvider):
@@ -76,7 +78,11 @@ class AnthropicProvider(LLMProvider):
                 log.error("Anthropic API error (status=%s): %s", exc.status_code, exc)
                 raise
 
-            log.debug("Anthropic response — stop_reason=%s, content_blocks=%d", response.stop_reason, len(response.content))
+            log.debug(
+                "Anthropic response — stop_reason=%s, content_blocks=%d",
+                response.stop_reason,
+                len(response.content),
+            )
 
             if response.stop_reason == "tool_use":
                 messages.append({"role": "assistant", "content": response.content})
@@ -84,14 +90,22 @@ class AnthropicProvider(LLMProvider):
                 tool_results = []
                 for block in response.content:
                     if block.type == "tool_use":
-                        log.info("Tool use requested: %s — inputs: %s", block.name, block.input)
+                        log.info(
+                            "Tool use requested: %s — inputs: %s",
+                            block.name,
+                            block.input,
+                        )
                         result = self._dispatch(block.name, block.input)
-                        log.debug("Tool result (%d chars): %s", len(result), result[:200])
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": result,
-                        })
+                        log.debug(
+                            "Tool result (%d chars): %s", len(result), result[:200]
+                        )
+                        tool_results.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": result,
+                            }
+                        )
 
                 messages.append({"role": "user", "content": tool_results})
 

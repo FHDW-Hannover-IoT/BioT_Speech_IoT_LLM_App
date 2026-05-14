@@ -68,6 +68,7 @@ class SensorDataResponse(BaseModel):
 
 # ── Startup helpers ───────────────────────────────────────────────────────────
 
+
 def _probe_api_key() -> None:
     """
     Make a real 1-token call to the configured LLM provider to confirm the
@@ -75,37 +76,47 @@ def _probe_api_key() -> None:
     on failure so the problem is obvious at startup rather than mid-demo.
     """
     provider = settings.llm_provider
-    api_key  = settings.llm_api_key
-    model    = settings.llm_model
+    api_key = settings.llm_api_key
+    model = settings.llm_model
     log.info("Probing API key (provider=%s, model=%s) …", provider, model)
 
     try:
         if provider == "anthropic":
             import anthropic as _anthropic
+
             _anthropic.Anthropic(api_key=api_key).messages.create(
-                model=model, max_tokens=1,
+                model=model,
+                max_tokens=1,
                 messages=[{"role": "user", "content": "hi"}],
             )
 
         elif provider in ("openai", "deepseek"):
             from openai import OpenAI as _OpenAI
+
             _OpenAI(
                 api_key=api_key,
-                base_url="https://api.deepseek.com/v1" if provider == "deepseek" else None,
+                base_url="https://api.deepseek.com/v1"
+                if provider == "deepseek"
+                else None,
             ).chat.completions.create(
-                model=model, max_tokens=1,
+                model=model,
+                max_tokens=1,
                 messages=[{"role": "user", "content": "hi"}],
             )
 
         elif provider == "gemini":
             import google.generativeai as _genai
+
             _genai.configure(api_key=api_key)
             _genai.GenerativeModel(model).generate_content(
-                "hi", generation_config={"max_output_tokens": 1},
+                "hi",
+                generation_config={"max_output_tokens": 1},
             )
 
         else:
-            log.warning("API key probe not implemented for provider=%r — skipping", provider)
+            log.warning(
+                "API key probe not implemented for provider=%r — skipping", provider
+            )
             return
 
         log.info("API key OK (provider=%s, model=%s)", provider, model)
@@ -114,7 +125,9 @@ def _probe_api_key() -> None:
         log.error(
             "API key check FAILED (provider=%s, model=%s): %s\n"
             "  → Check LLM_API_KEY in .env and confirm you have access to that model.",
-            provider, model, exc,
+            provider,
+            model,
+            exc,
         )
         raise SystemExit(1) from exc
 
@@ -138,17 +151,19 @@ def _start_mcp_server() -> subprocess.Popen:
             "Check the output above for the error.",
             proc.returncode,
         )
-        raise RuntimeError(
-            f"MCP server failed to start (exit code {proc.returncode})."
-        )
+        raise RuntimeError(f"MCP server failed to start (exit code {proc.returncode}).")
 
     mcp_url = f"http://localhost:{settings.mcp_server_port}/mcp"
     for attempt in range(settings.mcp_probe_attempts):
         time.sleep(settings.mcp_probe_interval_secs)
 
         if proc.poll() is not None:
-            log.error("MCP server crashed during startup (exit code %d)", proc.returncode)
-            raise RuntimeError("MCP server crashed. See terminal output for the traceback.")
+            log.error(
+                "MCP server crashed during startup (exit code %d)", proc.returncode
+            )
+            raise RuntimeError(
+                "MCP server crashed. See terminal output for the traceback."
+            )
 
         try:
             httpx.get(mcp_url, timeout=settings.mcp_probe_timeout_secs)
@@ -157,13 +172,16 @@ def _start_mcp_server() -> subprocess.Popen:
         except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout) as exc:
             log.debug(
                 "MCP server not ready yet (attempt %d/%d): %s",
-                attempt + 1, settings.mcp_probe_attempts, type(exc).__name__,
+                attempt + 1,
+                settings.mcp_probe_attempts,
+                type(exc).__name__,
             )
         except httpx.HTTPStatusError as exc:
             # Any HTTP response means the server is up (MCP may return non-200 for GET)
             log.info(
                 "MCP server ready at %s (HTTP %s — expected for MCP protocol)",
-                mcp_url, exc.response.status_code,
+                mcp_url,
+                exc.response.status_code,
             )
             return proc
 
@@ -176,6 +194,7 @@ def _start_mcp_server() -> subprocess.Popen:
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -204,7 +223,9 @@ async def lifespan(app: FastAPI):
     )
     log.info(
         "Agent ready (provider=%s, model=%s, mcp=%s)",
-        settings.llm_provider, settings.llm_model, settings.mcp_server_url,
+        settings.llm_provider,
+        settings.llm_model,
+        settings.mcp_server_url,
     )
 
     # 4. Start MQTT subscriber (writes live sensor data via SensorRepository)
@@ -217,7 +238,8 @@ async def lifespan(app: FastAPI):
     app.state.subscriber = subscriber
     log.info(
         "MQTT subscriber running (broker=%s:%d)",
-        settings.mqtt_broker_host, settings.mqtt_broker_port,
+        settings.mqtt_broker_host,
+        settings.mqtt_broker_port,
     )
 
     yield
@@ -248,7 +270,10 @@ app = FastAPI(
 async def global_exception_handler(request: Request, exc: Exception):
     log.error(
         "Unhandled exception on %s %s: %s",
-        request.method, request.url.path, exc, exc_info=True,
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=True,
     )
     return JSONResponse(
         status_code=500,
@@ -257,6 +282,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # ── Dependency helpers ────────────────────────────────────────────────────────
+
 
 def get_agent() -> SensorAgent:
     return app.state.agent
@@ -268,13 +294,18 @@ def get_repository() -> SensorRepository:
 
 # ── Core endpoints ────────────────────────────────────────────────────────────
 
+
 @app.get("/health", summary="Liveness check")
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
 
-@app.post("/chat", response_model=ChatResponse, summary="Natural-language query to the LLM agent")
+@app.post(
+    "/chat",
+    response_model=ChatResponse,
+    summary="Natural-language query to the LLM agent",
+)
 async def chat(
     req: ChatRequest,
     agent: Annotated[SensorAgent, Depends(get_agent)],
@@ -310,21 +341,28 @@ async def chat(
 # Response format: {"rows": [{"timestamp": ms, "x": f, "y": f, "z": f}, ...]}
 # The Android McpDataSyncService parses this exact shape.
 
+
 @app.get(
     "/data/accel",
     response_model=SensorDataResponse,
     summary="Historical accelerometer data for Android sync",
 )
 async def data_accel(
-    from_ms: int = Query(..., alias="from", description="Start timestamp (ms since epoch)"),
-    to_ms:   int = Query(..., alias="to",   description="End timestamp (ms since epoch)"),
-    repo:    SensorRepository = Depends(get_repository),
+    from_ms: int = Query(
+        ..., alias="from", description="Start timestamp (ms since epoch)"
+    ),
+    to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
+    repo: SensorRepository = Depends(get_repository),
 ):
     rows = await asyncio.to_thread(repo.get_range, "accel_data", from_ms, to_ms)
-    return SensorDataResponse(rows=[
-        SensorRow(timestamp=r["timestamp"], x=r["accelX"], y=r["accelY"], z=r["accelZ"])
-        for r in rows
-    ])
+    return SensorDataResponse(
+        rows=[
+            SensorRow(
+                timestamp=r["timestamp"], x=r["accelX"], y=r["accelY"], z=r["accelZ"]
+            )
+            for r in rows
+        ]
+    )
 
 
 @app.get(
@@ -333,15 +371,21 @@ async def data_accel(
     summary="Historical gyroscope data for Android sync",
 )
 async def data_gyro(
-    from_ms: int = Query(..., alias="from", description="Start timestamp (ms since epoch)"),
-    to_ms:   int = Query(..., alias="to",   description="End timestamp (ms since epoch)"),
-    repo:    SensorRepository = Depends(get_repository),
+    from_ms: int = Query(
+        ..., alias="from", description="Start timestamp (ms since epoch)"
+    ),
+    to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
+    repo: SensorRepository = Depends(get_repository),
 ):
     rows = await asyncio.to_thread(repo.get_range, "gyro_data", from_ms, to_ms)
-    return SensorDataResponse(rows=[
-        SensorRow(timestamp=r["timestamp"], x=r["gyroX"], y=r["gyroY"], z=r["gyroZ"])
-        for r in rows
-    ])
+    return SensorDataResponse(
+        rows=[
+            SensorRow(
+                timestamp=r["timestamp"], x=r["gyroX"], y=r["gyroY"], z=r["gyroZ"]
+            )
+            for r in rows
+        ]
+    )
 
 
 @app.get(
@@ -350,15 +394,21 @@ async def data_gyro(
     summary="Historical magnetometer data for Android sync",
 )
 async def data_magnet(
-    from_ms: int = Query(..., alias="from", description="Start timestamp (ms since epoch)"),
-    to_ms:   int = Query(..., alias="to",   description="End timestamp (ms since epoch)"),
-    repo:    SensorRepository = Depends(get_repository),
+    from_ms: int = Query(
+        ..., alias="from", description="Start timestamp (ms since epoch)"
+    ),
+    to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
+    repo: SensorRepository = Depends(get_repository),
 ):
     rows = await asyncio.to_thread(repo.get_range, "magnet_data", from_ms, to_ms)
-    return SensorDataResponse(rows=[
-        SensorRow(timestamp=r["timestamp"], x=r["magnetX"], y=r["magnetY"], z=r["magnetZ"])
-        for r in rows
-    ])
+    return SensorDataResponse(
+        rows=[
+            SensorRow(
+                timestamp=r["timestamp"], x=r["magnetX"], y=r["magnetY"], z=r["magnetZ"]
+            )
+            for r in rows
+        ]
+    )
 
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────

@@ -25,7 +25,9 @@ log = get_logger(__name__)
 
 _DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 _MAX_TURNS = 10
-_LOOP_FALLBACK = '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
+_LOOP_FALLBACK = (
+    '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
+)
 
 
 class DeepSeekProvider(LLMProvider):
@@ -47,6 +49,7 @@ class DeepSeekProvider(LLMProvider):
     ) -> None:
         try:
             from openai import OpenAI
+
             # Point the OpenAI client at DeepSeek's compatible endpoint
             self._client = OpenAI(api_key=api_key, base_url=_DEEPSEEK_BASE_URL)
         except ImportError:
@@ -55,7 +58,11 @@ class DeepSeekProvider(LLMProvider):
 
         self._model = model
         self._dispatch = tool_dispatcher
-        log.debug("DeepSeekProvider initialised (model=%s, base_url=%s)", model, _DEEPSEEK_BASE_URL)
+        log.debug(
+            "DeepSeekProvider initialised (model=%s, base_url=%s)",
+            model,
+            _DEEPSEEK_BASE_URL,
+        )
 
     def format_tools(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
@@ -73,7 +80,9 @@ class DeepSeekProvider(LLMProvider):
                 "function": {
                     "name": tool["name"],
                     "description": tool.get("description", ""),
-                    "parameters": tool.get("input_schema", {"type": "object", "properties": {}}),
+                    "parameters": tool.get(
+                        "input_schema", {"type": "object", "properties": {}}
+                    ),
                 },
             }
             for tool in tools
@@ -117,14 +126,20 @@ class DeepSeekProvider(LLMProvider):
 
                 for tool_call in message.tool_calls:
                     tool_input = json.loads(tool_call.function.arguments)
-                    log.info("Tool use requested: %s — inputs: %s", tool_call.function.name, tool_input)
+                    log.info(
+                        "Tool use requested: %s — inputs: %s",
+                        tool_call.function.name,
+                        tool_input,
+                    )
                     result = self._dispatch(tool_call.function.name, tool_input)
                     log.debug("Tool result (%d chars): %s", len(result), result[:200])
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": result,
-                    })
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": result,
+                        }
+                    )
 
             else:
                 text = message.content or "[no response]"

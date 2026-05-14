@@ -308,7 +308,9 @@ class SensorAgent:
         self._mcp_url = mcp_server_url.rstrip("/")
         log.debug(
             "SensorAgent init (provider=%s, model=%s, mcp=%s)",
-            provider_name, model, mcp_server_url,
+            provider_name,
+            model,
+            mcp_server_url,
         )
         self._provider: LLMProvider = create_provider(
             provider_name=provider_name,
@@ -339,7 +341,10 @@ class SensorAgent:
         rpc_id = _uuid.uuid4().hex[:8]
         log.info(
             "MCP → tool=%s  inputs=%s  url=%s  id=%s",
-            name, inputs, self._mcp_url, rpc_id,
+            name,
+            inputs,
+            self._mcp_url,
+            rpc_id,
         )
 
         payload = {
@@ -353,6 +358,7 @@ class SensorAgent:
         }
 
         import time as _time
+
         t0 = _time.monotonic()
         try:
             response = httpx.post(
@@ -367,7 +373,10 @@ class SensorAgent:
             elapsed_ms = int((_time.monotonic() - t0) * 1000)
             log.info(
                 "MCP ← tool=%s  status=%d  ms=%d  id=%s",
-                name, response.status_code, elapsed_ms, rpc_id,
+                name,
+                response.status_code,
+                elapsed_ms,
+                rpc_id,
             )
             response.raise_for_status()
             data = response.json()
@@ -387,15 +396,25 @@ class SensorAgent:
                 f"MCP server unreachable at {self._mcp_url} (ms={elapsed_ms}). "
                 "Ensure sensor_mcp_server.py is running."
             )
-            log.error("MCP ✗ ConnectError  tool=%s  url=%s  ms=%d", name, self._mcp_url, elapsed_ms)
+            log.error(
+                "MCP ✗ ConnectError  tool=%s  url=%s  ms=%d",
+                name,
+                self._mcp_url,
+                elapsed_ms,
+            )
             return msg
 
         except httpx.HTTPStatusError as exc:
             elapsed_ms = int((_time.monotonic() - t0) * 1000)
-            msg = f"MCP server HTTP {exc.response.status_code}: {exc.response.text[:200]}"
+            msg = (
+                f"MCP server HTTP {exc.response.status_code}: {exc.response.text[:200]}"
+            )
             log.error(
                 "MCP ✗ HTTPError  tool=%s  status=%d  ms=%d  body=%s",
-                name, exc.response.status_code, elapsed_ms, exc.response.text[:200],
+                name,
+                exc.response.status_code,
+                elapsed_ms,
+                exc.response.text[:200],
             )
             return msg
 
@@ -403,6 +422,9 @@ class SensorAgent:
             elapsed_ms = int((_time.monotonic() - t0) * 1000)
             log.error(
                 "MCP ✗ exception  tool=%s  ms=%d  err=%s",
-                name, elapsed_ms, exc, exc_info=True,
+                name,
+                elapsed_ms,
+                exc,
+                exc_info=True,
             )
             return f"Tool dispatch error: {exc}"

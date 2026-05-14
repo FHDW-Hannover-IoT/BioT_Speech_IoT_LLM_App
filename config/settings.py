@@ -20,9 +20,9 @@ load_dotenv(dotenv_path=_ENV_PATH)
 _SUPPORTED_PROVIDERS = ("anthropic", "openai", "deepseek", "gemini")
 _DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-4-6",
-    "openai":    "gpt-4.1",
-    "deepseek":  "deepseek-chat",
-    "gemini":    "gemini-2.0-flash",
+    "openai": "gpt-4.1",
+    "deepseek": "deepseek-chat",
+    "gemini": "gemini-2.0-flash",
 }
 
 
@@ -58,7 +58,9 @@ class Settings:
         self.llm_api_key: str = api_key
 
         model = os.getenv("LLM_MODEL", "").strip()
-        self.llm_model: str = model if model else _DEFAULT_MODELS.get(provider, "claude-sonnet-4-6")
+        self.llm_model: str = (
+            model if model else _DEFAULT_MODELS.get(provider, "claude-sonnet-4-6")
+        )
 
         # ── Database ──────────────────────────────────────────────────────────
         raw_db = os.getenv("SQLITE_DB_PATH", "").strip()
@@ -78,12 +80,18 @@ class Settings:
         ).strip()
 
         # MCP startup probe settings (replaces hardcoded magic numbers in main.py)
-        self.mcp_probe_attempts: int      = int(os.getenv("MCP_PROBE_ATTEMPTS", "15"))
-        self.mcp_probe_interval_secs: float = float(os.getenv("MCP_PROBE_INTERVAL_SECS", "1.0"))
-        self.mcp_probe_timeout_secs: float  = float(os.getenv("MCP_PROBE_TIMEOUT_SECS", "2.0"))
+        self.mcp_probe_attempts: int = int(os.getenv("MCP_PROBE_ATTEMPTS", "15"))
+        self.mcp_probe_interval_secs: float = float(
+            os.getenv("MCP_PROBE_INTERVAL_SECS", "1.0")
+        )
+        self.mcp_probe_timeout_secs: float = float(
+            os.getenv("MCP_PROBE_TIMEOUT_SECS", "2.0")
+        )
 
         # MCP tool call HTTP timeout (agent → MCP server per tool call)
-        self.mcp_tool_timeout_secs: float = float(os.getenv("MCP_TOOL_TIMEOUT_SECS", "30.0"))
+        self.mcp_tool_timeout_secs: float = float(
+            os.getenv("MCP_TOOL_TIMEOUT_SECS", "30.0")
+        )
 
         # Maximum rows returned by any MCP tool
         self.mcp_max_rows: int = int(os.getenv("MCP_MAX_ROWS", "50"))
@@ -93,7 +101,9 @@ class Settings:
         self.mqtt_broker_port: int = int(os.getenv("MQTT_BROKER_PORT", "1883"))
 
         # Seconds to wait before retrying a dropped MQTT connection
-        self.mqtt_reconnect_delay_secs: int = int(os.getenv("MQTT_RECONNECT_DELAY_SECS", "5"))
+        self.mqtt_reconnect_delay_secs: int = int(
+            os.getenv("MQTT_RECONNECT_DELAY_SECS", "5")
+        )
 
         # Client ID prefix — a UUID suffix is appended at runtime to prevent
         # broker kick-off when two instances start simultaneously.

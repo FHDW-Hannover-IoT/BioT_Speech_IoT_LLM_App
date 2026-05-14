@@ -24,7 +24,9 @@ from app.providers.base import LLMProvider
 log = get_logger(__name__)
 
 _MAX_TURNS = 10
-_LOOP_FALLBACK = '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
+_LOOP_FALLBACK = (
+    '{"action": "answer", "tts": "Sorry, I could not complete that request."}'
+)
 
 
 class OpenAIProvider(LLMProvider):
@@ -48,6 +50,7 @@ class OpenAIProvider(LLMProvider):
         # provider is actually selected — keeps startup clean if not installed
         try:
             from openai import OpenAI
+
             self._client = OpenAI(api_key=api_key)
         except ImportError:
             print(
@@ -76,7 +79,9 @@ class OpenAIProvider(LLMProvider):
                 "function": {
                     "name": tool["name"],
                     "description": tool.get("description", ""),
-                    "parameters": tool.get("input_schema", {"type": "object", "properties": {}}),
+                    "parameters": tool.get(
+                        "input_schema", {"type": "object", "properties": {}}
+                    ),
                 },
             }
             for tool in tools
@@ -120,14 +125,20 @@ class OpenAIProvider(LLMProvider):
 
                 for tool_call in message.tool_calls:
                     tool_input = json.loads(tool_call.function.arguments)
-                    log.info("Tool use requested: %s — inputs: %s", tool_call.function.name, tool_input)
+                    log.info(
+                        "Tool use requested: %s — inputs: %s",
+                        tool_call.function.name,
+                        tool_input,
+                    )
                     result = self._dispatch(tool_call.function.name, tool_input)
                     log.debug("Tool result (%d chars): %s", len(result), result[:200])
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": result,
-                    })
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": result,
+                        }
+                    )
 
             else:
                 text = message.content or "[no response]"

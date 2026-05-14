@@ -65,7 +65,10 @@ class SensorRepository:
         )
         log.debug(
             "insert_ereignis ts=%d type=%s value=%.3f axis=%s",
-            timestamp, sensor_type, value, axis,
+            timestamp,
+            sensor_type,
+            value,
+            axis,
         )
 
     # ── Reads ─────────────────────────────────────────────────────────────────
@@ -121,9 +124,9 @@ class SensorRepository:
         return {
             col: {
                 "count": row[f"cnt_{col}"],
-                "min":   row[f"mn_{col}"],
-                "max":   row[f"mx_{col}"],
-                "avg":   row[f"av_{col}"],
+                "min": row[f"mn_{col}"],
+                "max": row[f"mx_{col}"],
+                "avg": row[f"av_{col}"],
             }
             for col in numeric_cols
             if row.get(f"cnt_{col}")
@@ -138,7 +141,7 @@ class SensorRepository:
             )
             if rows:
                 result[table] = {
-                    "count":  rows[0]["cnt"],
+                    "count": rows[0]["cnt"],
                     "latest": rows[0]["latest"],
                 }
         return result
@@ -165,6 +168,7 @@ class SensorRepository:
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
 
 def _check_table(table: str) -> None:
     if table not in _VALID_TABLES:
