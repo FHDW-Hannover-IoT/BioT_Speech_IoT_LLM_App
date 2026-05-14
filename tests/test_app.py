@@ -5,7 +5,6 @@ from app.main import ChatRequest, health, chat
 
 
 class FastAPISmokeTests(unittest.IsolatedAsyncioTestCase):
-
     async def test_health_returns_ok(self):
         self.assertEqual(await health(), {"status": "ok"})
 
