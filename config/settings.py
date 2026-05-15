@@ -96,6 +96,10 @@ class Settings:
         # Maximum rows returned by any MCP tool
         self.mcp_max_rows: int = int(os.getenv("MCP_MAX_ROWS", "50"))
 
+        # Max rows per page for /data/accel|gyro|magnet (Android pagination).
+        # Android sends ?limit=N per page; server caps at this value.
+        self.data_fetch_page_size: int = int(os.getenv("DATA_FETCH_PAGE_SIZE", "500"))
+
         # ── MQTT Broker ───────────────────────────────────────────────────────
         self.mqtt_broker_host: str = os.getenv("MQTT_BROKER_HOST", "127.0.0.1").strip()
         self.mqtt_broker_port: int = int(os.getenv("MQTT_BROKER_PORT", "1883"))

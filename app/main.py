@@ -365,9 +365,11 @@ async def data_accel(
         ..., alias="from", description="Start timestamp (ms since epoch)"
     ),
     to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
+    limit: int = Query(default=500, description="Rows per page — capped at DATA_FETCH_PAGE_SIZE"),
     repo: SensorRepository = Depends(get_repository),
 ):
-    rows = await asyncio.to_thread(repo.get_range, "accel_data", from_ms, to_ms, 100_000)
+    page_size = min(limit, settings.data_fetch_page_size)
+    rows = await asyncio.to_thread(repo.get_range, "accel_data", from_ms, to_ms, page_size)
     return SensorDataResponse(
         rows=[
             SensorRow(
@@ -388,9 +390,11 @@ async def data_gyro(
         ..., alias="from", description="Start timestamp (ms since epoch)"
     ),
     to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
+    limit: int = Query(default=500, description="Rows per page — capped at DATA_FETCH_PAGE_SIZE"),
     repo: SensorRepository = Depends(get_repository),
 ):
-    rows = await asyncio.to_thread(repo.get_range, "gyro_data", from_ms, to_ms, 100_000)
+    page_size = min(limit, settings.data_fetch_page_size)
+    rows = await asyncio.to_thread(repo.get_range, "gyro_data", from_ms, to_ms, page_size)
     return SensorDataResponse(
         rows=[
             SensorRow(
@@ -411,9 +415,11 @@ async def data_magnet(
         ..., alias="from", description="Start timestamp (ms since epoch)"
     ),
     to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
+    limit: int = Query(default=500, description="Rows per page — capped at DATA_FETCH_PAGE_SIZE"),
     repo: SensorRepository = Depends(get_repository),
 ):
-    rows = await asyncio.to_thread(repo.get_range, "magnet_data", from_ms, to_ms, 100_000)
+    page_size = min(limit, settings.data_fetch_page_size)
+    rows = await asyncio.to_thread(repo.get_range, "magnet_data", from_ms, to_ms, page_size)
     return SensorDataResponse(
         rows=[
             SensorRow(
