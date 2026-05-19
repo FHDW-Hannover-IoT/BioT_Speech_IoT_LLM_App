@@ -19,6 +19,7 @@ Tools exposed:
     get_event_log(limit)                — ereignis_data entries
     get_row_count(table)                — per-table counts + latest timestamp
     execute_query(sql)                  — read-only SELECT (mode=ro enforced)
+    query_rag(question, top_k)          — project docs via vector store
 
 Run standalone (for testing):
     uv run python -m mcp_server.sensor_mcp_server
@@ -28,6 +29,8 @@ Run via main.py:
 """
 
 import time
+import os
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
@@ -110,6 +113,15 @@ def _format_age(ts_ms: int) -> str:
     if age_s < 120:
         return f"{age_s:.0f} seconds ago"
     return f"{age_s / 60:.1f} minutes ago"
+
+
+def _get_rag_manifest_path() -> Path:
+    path_value = getattr(settings, "rag_manifest_path", None)
+    if isinstance(path_value, Path):
+        return path_value
+    if path_value:
+        return Path(str(path_value))
+    return Path(__file__).resolve().parent.parent / "rag" / "rag_manifest.json"
 
 
 # ── MCP Tools ─────────────────────────────────────────────────────────────────
@@ -387,6 +399,53 @@ def execute_query(sql: str) -> str:
     except Exception as exc:
         log.warning("execute_query error: %s", exc)
         return f"Query error: {exc}"
+
+
+@mcp.tool()
+def query_rag(question: str, top_k: int = 6) -> str:
+    """
+    Query the RAG vector store built from project documents.
+
+    Use for: documentation questions, architecture, requirements, glossary.
+
+    Args:
+        question: User question to answer.
+        top_k: Number of passages to use (default 6).
+    """
+    log.info("MCP tool: query_rag(question=%r, top_k=%d)", question, top_k)
+    try:
+        has_openai_key = bool(os.getenv("OPENAI_API_KEY", "").strip())
+        has_llm_key = bool(os.getenv("LLM_API_KEY", "").strip())
+        if not (has_openai_key or has_llm_key):
+            return (
+                "RAG requires an OpenAI API key. Set OPENAI_API_KEY or LLM_API_KEY."
+            )
+
+        manifest_path = _get_rag_manifest_path()
+        if not manifest_path.exists():
+            return (
+                f"RAG manifest not found at {manifest_path}. "
+                "Create it with rag.advanced_rag ingest."
+            )
+
+        from rag.advanced_rag import AdvancedRag
+        from rag.manifest import read_manifest
+
+        manifest = read_manifest(str(manifest_path))
+        store_id = (manifest.get("vector_store_id") or "").strip()
+        if not store_id:
+            return "RAG manifest is missing vector_store_id."
+
+        top_k = max(1, min(int(top_k), 20))
+        rag = AdvancedRag()
+        answer = rag.answer(question, store_id, top_k=top_k)
+        if answer.sources:
+            return f"{answer.answer}\n\nSources: {', '.join(answer.sources)}"
+        return answer.answer
+
+    except Exception as exc:
+        log.error("RAG query error: %s", exc, exc_info=True)
+        return f"RAG error: {exc}"
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

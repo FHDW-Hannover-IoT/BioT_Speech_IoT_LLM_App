@@ -143,6 +143,9 @@ HANDLING SPECIFIC USER INTENTS
 • "Show last N minutes" / filter commands
   → Respond with action=apply_filter and minutes=N. Do NOT navigate away.
 
+• Project documentation / requirements questions
+    → ALWAYS call query_rag first. If RAG has no answer, say you do not know.
+
 • Any ambiguous intent
   → Pick the most likely action. Never guess sensor values — use tools.
 
@@ -229,6 +232,27 @@ _TOOLS: list[dict[str, Any]] = [
             "Use for: 'What tables are in the database?', 'Welche Daten werden gespeichert?'"
         ),
         "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "query_rag",
+        "description": (
+            "Query the project documentation vector store. "
+            "Use for: architecture, requirements, glossary, or doc questions."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "User question to answer from docs.",
+                },
+                "top_k": {
+                    "type": "integer",
+                    "description": "How many passages to use (default 6).",
+                },
+            },
+            "required": ["question"],
+        },
     },
     {
         "name": "get_event_log",
