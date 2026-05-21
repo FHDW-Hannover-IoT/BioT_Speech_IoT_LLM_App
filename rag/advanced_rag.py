@@ -13,7 +13,7 @@ from rag.upload_file import create_files
 
 load_dotenv()
 
-_DEFAULT_MODEL = os.getenv("OPENAI_RAG_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
+_DEFAULT_MODEL = os.getenv("OPENAI_RAG_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
 _DEFAULT_RERANK_MODEL = os.getenv("OPENAI_RERANK_MODEL", _DEFAULT_MODEL)
 
 
