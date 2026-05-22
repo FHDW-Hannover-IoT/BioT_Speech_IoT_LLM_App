@@ -104,7 +104,7 @@ class AdvancedRag:
     def generate_queries(self, question: str, max_queries: int = 4) -> list[str]:
         system = (
             "You generate search queries for retrieval. "
-            "Return JSON: {\"queries\": [\"...\"]}."
+            'Return JSON: {"queries": ["..."]}.'
         )
         user = (
             "Question:\n"
@@ -221,7 +221,7 @@ class AdvancedRag:
             lines.append(f"{idx}. Source: {source}\n{item.text}")
         prompt = (
             "Rank the passages by relevance to the question. "
-            "Return JSON: {\"ranked_ids\": [1,2,3]}."
+            'Return JSON: {"ranked_ids": [1,2,3]}.'
         )
         user = f"Question:\n{question}\n\nPassages:\n" + "\n\n".join(lines)
 
@@ -235,7 +235,9 @@ class AdvancedRag:
         )
         text = response.choices[0].message.content or ""
         data = _safe_json_loads(text)
-        ranked_ids = data.get("ranked_ids") if isinstance(data.get("ranked_ids"), list) else []
+        ranked_ids = (
+            data.get("ranked_ids") if isinstance(data.get("ranked_ids"), list) else []
+        )
 
         ordered: list[SearchResult] = []
         for rid in ranked_ids:
@@ -332,12 +334,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Advanced RAG utilities")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    ingest = sub.add_parser("ingest", help="Upload files and create or update a vector store")
+    ingest = sub.add_parser(
+        "ingest", help="Upload files and create or update a vector store"
+    )
     ingest.add_argument("--store-name", help="New vector store name")
     ingest.add_argument("--vector-store-id", help="Existing vector store id")
-    ingest.add_argument("--sources", nargs="+", required=True, help="File paths or URLs")
+    ingest.add_argument(
+        "--sources", nargs="+", required=True, help="File paths or URLs"
+    )
     ingest.add_argument("--manifest", help="Write manifest JSON file")
-    ingest.add_argument("--no-wait", action="store_true", help="Do not wait for processing")
+    ingest.add_argument(
+        "--no-wait", action="store_true", help="Do not wait for processing"
+    )
     ingest.set_defaults(func=_cmd_ingest)
 
     query = sub.add_parser("query", help="Query a vector store")

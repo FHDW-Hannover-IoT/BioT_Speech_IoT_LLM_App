@@ -1,9 +1,9 @@
-import os
 from dotenv import load_dotenv
 from mcp_server.sensor_mcp_server import query_rag
 
 # Lade den API-Key aus der .env Datei
 load_dotenv()
+
 
 def run_test():
     print("Starte RAG-Test...")
@@ -16,6 +16,7 @@ def run_test():
 
     print("\n--- ERGEBNIS ---")
     print(antwort)
+
 
 if __name__ == "__main__":
     run_test()

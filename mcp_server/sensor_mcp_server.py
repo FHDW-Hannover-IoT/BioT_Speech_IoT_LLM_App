@@ -417,9 +417,7 @@ def query_rag(question: str, top_k: int = 6) -> str:
         has_openai_key = bool(os.getenv("OPENAI_API_KEY", "").strip())
         has_llm_key = bool(os.getenv("LLM_API_KEY", "").strip())
         if not (has_openai_key or has_llm_key):
-            return (
-                "RAG requires an OpenAI API key. Set OPENAI_API_KEY or LLM_API_KEY."
-            )
+            return "RAG requires an OpenAI API key. Set OPENAI_API_KEY or LLM_API_KEY."
 
         manifest_path = _get_rag_manifest_path()
         if not manifest_path.exists():
