@@ -28,7 +28,6 @@ Run via main.py:
     Started automatically as a subprocess when the FastAPI server starts.
 """
 
-import os
 import time
 from pathlib import Path
 

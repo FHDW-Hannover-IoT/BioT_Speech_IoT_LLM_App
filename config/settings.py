@@ -35,7 +35,6 @@ class Settings:
     """
 
     def __init__(self) -> None:
-
         # ── LLM ──────────────────────────────────────────────────────────────
         provider = os.getenv("LLM_PROVIDER", "anthropic").strip().lower()
         if provider not in _SUPPORTED_PROVIDERS:

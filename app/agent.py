@@ -356,7 +356,10 @@ class SensorAgent:
 
         # Enforce a max 300 characters for the spoken tts text only.
         if len(reply) > 300:
-            log.info("Reply length (%d) exceeds 300 characters. Truncating tts if possible...", len(reply))
+            log.info(
+                "Reply length (%d) exceeds 300 characters. Truncating tts if possible...",
+                len(reply),
+            )
             try:
                 import json
 
@@ -423,13 +426,15 @@ class SensorAgent:
                 rpc_id,
             )
             response.raise_for_status()
-            
+
             text = response.text
             if text.startswith("event:") or "data:" in text:
                 import re
+
                 match = re.search(r"^data:\s*(.*)$", text, re.MULTILINE)
                 if match:
                     import json
+
                     data = json.loads(match.group(1))
                 else:
                     data = {}
