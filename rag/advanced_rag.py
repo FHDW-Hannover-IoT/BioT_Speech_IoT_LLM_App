@@ -31,6 +31,17 @@ class RagAnswer:
     sources: list[str]
 
 
+def _truncate_text(text: str, max_chars: int) -> str:
+    text = text.strip()
+    if max_chars <= 0:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    if max_chars <= 3:
+        return "." * max_chars
+    return text[: max_chars - 3].rstrip() + "..."
+
+
 def _get_client() -> OpenAI:
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
@@ -255,6 +266,7 @@ class AdvancedRag:
         vector_store_id: str,
         top_k: int = 6,
         max_context_chars: int = 8000,
+        max_answer_chars: int = 500,
     ) -> RagAnswer:
         results = self.retrieve(question, vector_store_id, top_k=top_k)
         if not results:
@@ -291,7 +303,10 @@ class AdvancedRag:
             temperature=0.2,
         )
         text = response.choices[0].message.content or ""
-        return RagAnswer(answer=text.strip(), sources=sorted(set(sources)))
+        return RagAnswer(
+            answer=_truncate_text(text, max_answer_chars),
+            sources=sorted(set(sources)),
+        )
 
 
 def _cmd_ingest(args: argparse.Namespace) -> None:

@@ -154,7 +154,7 @@ Guidelines:
 - ALWAYS use tools to fetch real data. Never invent values.
 - Call get_db_schema first if unsure which columns a table has.
 - If a table is empty, say so and suggest starting the Android app.
-- Keep tts SHORT (under 20 seconds when spoken aloud).
+- Keep the final JSON response under 300 characters. Keep tts extremely brief and concise (max 1-2 sentences) to fit within this 300-character limit.
 - Always return valid JSON. Do not wrap in markdown fences.
 """
 
@@ -353,6 +353,25 @@ class SensorAgent:
             system_prompt=_SYSTEM_PROMPT,
         )
         log.debug("Agent.run reply: %r", reply[:120])
+
+        # Enforce a max 300 characters for the spoken tts text only.
+        if len(reply) > 300:
+            log.info("Reply length (%d) exceeds 300 characters. Truncating tts if possible...", len(reply))
+            try:
+                import json
+
+                data = json.loads(reply)
+                if isinstance(data, dict) and isinstance(data.get("tts"), str):
+                    orig_tts = data["tts"]
+                    if len(orig_tts) > 300:
+                        data["tts"] = orig_tts[:297] + "..."
+                        reply = json.dumps(data, ensure_ascii=False)
+            except Exception as e:
+                log.warning("Failed to parse/truncate JSON response: %s", e)
+
+            if len(reply) > 300 and not reply.lstrip().startswith("{"):
+                reply = reply[:300]
+
         return reply
 
     def _dispatch_tool(self, name: str, inputs: dict[str, Any]) -> str:
@@ -365,7 +384,7 @@ class SensorAgent:
         """
         rpc_id = _uuid.uuid4().hex[:8]
         log.info(
-            "MCP → tool=%s  inputs=%s  url=%s  id=%s",
+            "MCP -> tool=%s  inputs=%s  url=%s  id=%s",
             name,
             inputs,
             self._mcp_url,
@@ -391,20 +410,31 @@ class SensorAgent:
                 json=payload,
                 headers={
                     "Content-Type": "application/json",
-                    "Accept": "application/json",
+                    "Accept": "application/json, text/event-stream",
                 },
                 timeout=settings.mcp_tool_timeout_secs,
             )
             elapsed_ms = int((_time.monotonic() - t0) * 1000)
             log.info(
-                "MCP ← tool=%s  status=%d  ms=%d  id=%s",
+                "MCP <- tool=%s  status=%d  ms=%d  id=%s",
                 name,
                 response.status_code,
                 elapsed_ms,
                 rpc_id,
             )
             response.raise_for_status()
-            data = response.json()
+            
+            text = response.text
+            if text.startswith("event:") or "data:" in text:
+                import re
+                match = re.search(r"^data:\s*(.*)$", text, re.MULTILINE)
+                if match:
+                    import json
+                    data = json.loads(match.group(1))
+                else:
+                    data = {}
+            else:
+                data = response.json()
 
             # JSON-RPC 2.0 wraps the tool result in {"result": {"content": [...]}}
             result_data = data.get("result", {})
@@ -422,7 +452,7 @@ class SensorAgent:
                 "Ensure sensor_mcp_server.py is running."
             )
             log.error(
-                "MCP ✗ ConnectError  tool=%s  url=%s  ms=%d",
+                "MCP x ConnectError  tool=%s  url=%s  ms=%d",
                 name,
                 self._mcp_url,
                 elapsed_ms,
@@ -435,7 +465,7 @@ class SensorAgent:
                 f"MCP server HTTP {exc.response.status_code}: {exc.response.text[:200]}"
             )
             log.error(
-                "MCP ✗ HTTPError  tool=%s  status=%d  ms=%d  body=%s",
+                "MCP x HTTPError  tool=%s  status=%d  ms=%d  body=%s",
                 name,
                 exc.response.status_code,
                 elapsed_ms,
@@ -446,7 +476,7 @@ class SensorAgent:
         except Exception as exc:
             elapsed_ms = int((_time.monotonic() - t0) * 1000)
             log.error(
-                "MCP ✗ exception  tool=%s  ms=%d  err=%s",
+                "MCP x exception  tool=%s  ms=%d  err=%s",
                 name,
                 elapsed_ms,
                 exc,
