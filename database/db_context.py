@@ -35,23 +35,26 @@ log = get_logger(__name__)
 # identically against both databases.
 
 _DDL: list[str] = [
+    # ── Raw sensor tables (1-second resolution) ──────────────────────────────
+    # UNIQUE on timestamp prevents duplicate rows when seeded data and live MQTT
+    # data overlap at the same second. INSERT OR IGNORE drops the duplicate silently.
     """CREATE TABLE IF NOT EXISTS accel_data (
         id        INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp INTEGER NOT NULL,
+        timestamp INTEGER NOT NULL UNIQUE,
         accelX    REAL    NOT NULL,
         accelY    REAL    NOT NULL,
         accelZ    REAL    NOT NULL
     )""",
     """CREATE TABLE IF NOT EXISTS gyro_data (
         id        INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp INTEGER NOT NULL,
+        timestamp INTEGER NOT NULL UNIQUE,
         gyroX     REAL    NOT NULL,
         gyroY     REAL    NOT NULL,
         gyroZ     REAL    NOT NULL
     )""",
     """CREATE TABLE IF NOT EXISTS magnet_data (
         id        INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp INTEGER NOT NULL,
+        timestamp INTEGER NOT NULL UNIQUE,
         magnetX   REAL    NOT NULL,
         magnetY   REAL    NOT NULL,
         magnetZ   REAL    NOT NULL
@@ -63,13 +66,63 @@ _DDL: list[str] = [
         value      REAL    NOT NULL,
         axis       TEXT    NOT NULL
     )""",
+    # ── 1-minute rollup tables ────────────────────────────────────────────────
+    # Each row is the AVG of all raw rows in a 60-second bucket.
+    # timestamp = (raw_ts / 60000) * 60000 — always the bucket's start millisecond.
+    # PRIMARY KEY on timestamp acts as the upsert key for INSERT OR REPLACE recomputation.
+    # Cleared and recomputed on every server startup so they're always consistent with raw data.
+    """CREATE TABLE IF NOT EXISTS accel_data_1min (
+        timestamp INTEGER PRIMARY KEY,
+        accelX    REAL NOT NULL,
+        accelY    REAL NOT NULL,
+        accelZ    REAL NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS gyro_data_1min (
+        timestamp INTEGER PRIMARY KEY,
+        gyroX     REAL NOT NULL,
+        gyroY     REAL NOT NULL,
+        gyroZ     REAL NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS magnet_data_1min (
+        timestamp INTEGER PRIMARY KEY,
+        magnetX   REAL NOT NULL,
+        magnetY   REAL NOT NULL,
+        magnetZ   REAL NOT NULL
+    )""",
+    # ── 1-hour rollup tables ──────────────────────────────────────────────────
+    # Each row is the AVG of all raw rows in a 3600-second bucket.
+    # Used for 24h and 1-week views — at most 168 rows for a full week.
+    """CREATE TABLE IF NOT EXISTS accel_data_1hour (
+        timestamp INTEGER PRIMARY KEY,
+        accelX    REAL NOT NULL,
+        accelY    REAL NOT NULL,
+        accelZ    REAL NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS gyro_data_1hour (
+        timestamp INTEGER PRIMARY KEY,
+        gyroX     REAL NOT NULL,
+        gyroY     REAL NOT NULL,
+        gyroZ     REAL NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS magnet_data_1hour (
+        timestamp INTEGER PRIMARY KEY,
+        magnetX   REAL NOT NULL,
+        magnetY   REAL NOT NULL,
+        magnetZ   REAL NOT NULL
+    )""",
 ]
 
 _INDICES: list[str] = [
-    "CREATE INDEX IF NOT EXISTS idx_accel_ts   ON accel_data(timestamp)",
-    "CREATE INDEX IF NOT EXISTS idx_gyro_ts    ON gyro_data(timestamp)",
-    "CREATE INDEX IF NOT EXISTS idx_magnet_ts  ON magnet_data(timestamp)",
-    "CREATE INDEX IF NOT EXISTS idx_ereignis_ts ON ereignis_data(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_accel_ts        ON accel_data(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_gyro_ts         ON gyro_data(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_magnet_ts       ON magnet_data(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_ereignis_ts     ON ereignis_data(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_accel_1min_ts   ON accel_data_1min(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_gyro_1min_ts    ON gyro_data_1min(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_magnet_1min_ts  ON magnet_data_1min(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_accel_1hour_ts  ON accel_data_1hour(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_gyro_1hour_ts   ON gyro_data_1hour(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_magnet_1hour_ts ON magnet_data_1hour(timestamp)",
 ]
 
 
