@@ -46,3 +46,4 @@ Thumbs.db
 
 # ── Sample files (local only) ─────────────────────────────────────────────────
 sample_files/
+.env
