@@ -57,7 +57,7 @@ class DatabaseSeeder:
         for table, gen_fn, bulk_fn in _TABLES:
             before_id = self._repo.get_max_id(table)
             rows = gen_fn(start_ms, now_ms, self._rng)
-            bulk_fn(rows)
+            bulk_fn(rows)  # bulk_insert also triggers per-batch rollup recompute
             after_id = self._repo.get_max_id(table)
             self._ranges[table] = (before_id, after_id)
             log.info(
@@ -67,6 +67,11 @@ class DatabaseSeeder:
                 before_id + 1,
                 after_id,
             )
+
+        # Full rollup recompute after all three tables are seeded
+        log.info("Recomputing all rollup tables after seed...")
+        self._repo.recompute_all_rollups()
+        log.info("Rollup tables ready")
 
     def unseed(self) -> None:
         """Delete all rows that were inserted by seed(). Safe to call multiple times."""
@@ -84,3 +89,6 @@ class DatabaseSeeder:
                 after_id,
             )
         self._ranges.clear()
+        # Recompute rollups — seeded rows are gone, rollups should reflect only MQTT data
+        self._repo.recompute_all_rollups()
+        log.info("Rollup tables updated after unseed")

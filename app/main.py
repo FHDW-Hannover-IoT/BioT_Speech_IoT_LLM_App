@@ -212,6 +212,12 @@ async def lifespan(app: FastAPI):
     repository = SensorRepository(db_context)
     app.state.repository = repository
 
+    # 1b. Recompute rollup tables from any raw data that survived the last session
+    # (e.g. MQTT data written after unseeding, or a previous run that didn't clean up).
+    log.info("Recomputing rollup tables from existing raw data...")
+    repository.recompute_all_rollups()
+    log.info("Rollup tables ready")
+
     # 2. Seed the database with fake historical data (dev/demo — skipped when SEED_ON_STARTUP=false)
     if settings.seed_on_startup:
         seeder = DatabaseSeeder(
@@ -361,22 +367,18 @@ async def chat(
     summary="Historical accelerometer data for Android sync",
 )
 async def data_accel(
-    from_ms: int = Query(
-        ..., alias="from", description="Start timestamp (ms since epoch)"
-    ),
+    from_ms: int = Query(..., alias="from", description="Start timestamp (ms since epoch)"),
     to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
     limit: int = Query(default=500, description="Rows per page — capped at DATA_FETCH_PAGE_SIZE"),
+    resolution: str = Query(default="auto", description="auto | raw | 1min | 1hour"),
     repo: SensorRepository = Depends(get_repository),
 ):
     page_size = min(limit, settings.data_fetch_page_size)
-    rows = await asyncio.to_thread(repo.get_range, "accel_data", from_ms, to_ms, page_size)
+    rows = await asyncio.to_thread(
+        _fetch_sensor, repo, "accel_data", from_ms, to_ms, page_size, resolution
+    )
     return SensorDataResponse(
-        rows=[
-            SensorRow(
-                timestamp=r["timestamp"], x=r["accelX"], y=r["accelY"], z=r["accelZ"]
-            )
-            for r in rows
-        ]
+        rows=[SensorRow(timestamp=r["timestamp"], x=r["accelX"], y=r["accelY"], z=r["accelZ"]) for r in rows]
     )
 
 
@@ -386,22 +388,18 @@ async def data_accel(
     summary="Historical gyroscope data for Android sync",
 )
 async def data_gyro(
-    from_ms: int = Query(
-        ..., alias="from", description="Start timestamp (ms since epoch)"
-    ),
+    from_ms: int = Query(..., alias="from", description="Start timestamp (ms since epoch)"),
     to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
     limit: int = Query(default=500, description="Rows per page — capped at DATA_FETCH_PAGE_SIZE"),
+    resolution: str = Query(default="auto", description="auto | raw | 1min | 1hour"),
     repo: SensorRepository = Depends(get_repository),
 ):
     page_size = min(limit, settings.data_fetch_page_size)
-    rows = await asyncio.to_thread(repo.get_range, "gyro_data", from_ms, to_ms, page_size)
+    rows = await asyncio.to_thread(
+        _fetch_sensor, repo, "gyro_data", from_ms, to_ms, page_size, resolution
+    )
     return SensorDataResponse(
-        rows=[
-            SensorRow(
-                timestamp=r["timestamp"], x=r["gyroX"], y=r["gyroY"], z=r["gyroZ"]
-            )
-            for r in rows
-        ]
+        rows=[SensorRow(timestamp=r["timestamp"], x=r["gyroX"], y=r["gyroY"], z=r["gyroZ"]) for r in rows]
     )
 
 
@@ -411,23 +409,41 @@ async def data_gyro(
     summary="Historical magnetometer data for Android sync",
 )
 async def data_magnet(
-    from_ms: int = Query(
-        ..., alias="from", description="Start timestamp (ms since epoch)"
-    ),
+    from_ms: int = Query(..., alias="from", description="Start timestamp (ms since epoch)"),
     to_ms: int = Query(..., alias="to", description="End timestamp (ms since epoch)"),
     limit: int = Query(default=500, description="Rows per page — capped at DATA_FETCH_PAGE_SIZE"),
+    resolution: str = Query(default="auto", description="auto | raw | 1min | 1hour"),
     repo: SensorRepository = Depends(get_repository),
 ):
     page_size = min(limit, settings.data_fetch_page_size)
-    rows = await asyncio.to_thread(repo.get_range, "magnet_data", from_ms, to_ms, page_size)
-    return SensorDataResponse(
-        rows=[
-            SensorRow(
-                timestamp=r["timestamp"], x=r["magnetX"], y=r["magnetY"], z=r["magnetZ"]
-            )
-            for r in rows
-        ]
+    rows = await asyncio.to_thread(
+        _fetch_sensor, repo, "magnet_data", from_ms, to_ms, page_size, resolution
     )
+    return SensorDataResponse(
+        rows=[SensorRow(timestamp=r["timestamp"], x=r["magnetX"], y=r["magnetY"], z=r["magnetZ"]) for r in rows]
+    )
+
+
+def _fetch_sensor(
+    repo: SensorRepository,
+    raw_table: str,
+    from_ms: int,
+    to_ms: int,
+    limit: int,
+    resolution: str,
+) -> list:
+    """Route the fetch to the correct table based on resolution param."""
+    if resolution == "auto":
+        return repo.get_range_auto(raw_table, from_ms, to_ms, limit)
+    elif resolution == "1min":
+        from database.sensor_repository import _ROLLUP_CONFIG
+        table = _ROLLUP_CONFIG[raw_table]["1min"][0]
+    elif resolution == "1hour":
+        from database.sensor_repository import _ROLLUP_CONFIG
+        table = _ROLLUP_CONFIG[raw_table]["1hour"][0]
+    else:
+        table = raw_table
+    return repo.get_range(table, from_ms, to_ms, limit)
 
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
