@@ -19,7 +19,6 @@ ENV/
 env/
 
 # ── Database files (generated at runtime, not source code) ───────────────────
-data/
 *.db
 *.db-shm
 *.db-wal
