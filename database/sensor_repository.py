@@ -40,21 +40,21 @@ class SensorRepository:
             "INSERT INTO accel_data (timestamp, accelX, accelY, accelZ) VALUES (?,?,?,?)",
             (timestamp, x, y, z),
         )
-        log.debug("insert_accel ts=%d x=%.3f y=%.3f z=%.3f", timestamp, x, y, z)
+        #log.debug("insert_accel ts=%d x=%.3f y=%.3f z=%.3f", timestamp, x, y, z)
 
     def insert_gyro(self, timestamp: int, x: float, y: float, z: float) -> None:
         self._ctx.execute_write(
             "INSERT INTO gyro_data (timestamp, gyroX, gyroY, gyroZ) VALUES (?,?,?,?)",
             (timestamp, x, y, z),
         )
-        log.debug("insert_gyro ts=%d x=%.3f y=%.3f z=%.3f", timestamp, x, y, z)
+        #log.debug("insert_gyro ts=%d x=%.3f y=%.3f z=%.3f", timestamp, x, y, z)
 
     def insert_magnet(self, timestamp: int, x: float, y: float, z: float) -> None:
         self._ctx.execute_write(
             "INSERT INTO magnet_data (timestamp, magnetX, magnetY, magnetZ) VALUES (?,?,?,?)",
             (timestamp, x, y, z),
         )
-        log.debug("insert_magnet ts=%d x=%.3f y=%.3f z=%.3f", timestamp, x, y, z)
+        #log.debug("insert_magnet ts=%d x=%.3f y=%.3f z=%.3f", timestamp, x, y, z)
 
     def insert_ereignis(
         self, timestamp: int, sensor_type: str, value: float, axis: str

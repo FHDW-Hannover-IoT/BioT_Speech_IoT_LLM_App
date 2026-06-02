@@ -159,7 +159,7 @@ class SensorMqttSubscriber:
         """Parse every incoming MQTT message and write to the repository."""
         topic = msg.topic
         payload = msg.payload.decode("utf-8", errors="replace").strip()
-        log.debug("MQTT message: %s = %r", topic, payload[:80])
+        #log.debug("MQTT message: %s = %r", topic, payload[:80])
 
         try:
             if topic == "Sensor/Bewegung":
