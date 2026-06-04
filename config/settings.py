@@ -35,6 +35,7 @@ class Settings:
     """
 
     def __init__(self) -> None:
+
         # ── LLM ──────────────────────────────────────────────────────────────
         provider = os.getenv("LLM_PROVIDER", "anthropic").strip().lower()
         if provider not in _SUPPORTED_PROVIDERS:
@@ -116,12 +117,6 @@ class Settings:
 
         # ── Misc ──────────────────────────────────────────────────────────────
         self.mcp_fs_roots: str = os.getenv("MCP_FS_ROOTS", "").strip()
-        raw_manifest = os.getenv("RAG_MANIFEST_PATH", "").strip()
-        self.rag_manifest_path: Path = (
-            Path(raw_manifest)
-            if raw_manifest
-            else Path(__file__).resolve().parent.parent / "rag" / "rag_manifest.json"
-        )
 
     def __repr__(self) -> str:
         return (
