@@ -1,0 +1,30 @@
+To read a specific axis from a gyroscope, you typically select the axis in software by reading the corresponding register/data field for **X, Y, or Z**.
+
+### General approach
+1. **Initialize the gyro sensor**
+2. **Read the raw gyro output**
+3. **Pick the axis you want**
+   - **X-axis**: `gyro.x`
+   - **Y-axis**: `gyro.y`
+   - **Z-axis**: `gyro.z`
+
+### Example
+If your sensor library returns a structure or object:
+```c
+gyro_data_t gyro;
+read_gyro(&gyro);
+
+int x = gyro.x;   // X-axis
+int y = gyro.y;   // Y-axis
+int z = gyro.z;   // Z-axis
+```
+
+If you're using direct registers, each axis is usually stored in separate high/low output registers, for example:
+- `OUT_X_L`, `OUT_X_H`
+- `OUT_Y_L`, `OUT_Y_H`
+- `OUT_Z_L`, `OUT_Z_H`
+
+### Important note
+A gyro sensor itself doesn’t usually “switch to one axis” physically. It measures all three axes at once; you just **choose which axis data to use** in your code.
+
+If you tell me the **exact gyro model** or library you’re using, I can show the precise register or code needed.

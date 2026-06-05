@@ -1,0 +1,101 @@
+Question:
+How can I define events?
+
+Context:
+Source: Doku.pdf
+2. Hardware Dependency: The core function of the app requires an Android device.
+7. How-To (for developers)
+7.1. Build & Run Locally
+• download app folder from git (https://github.com/FHDW-Hannover-IoT/
+BioT_Speech_IoT_App.git) (click [ main v ] )
+• configure virtual device (we used a Pixel 8a) (Device Manager/ Add a new Device / Create
+Virtual Device/ Pixel 8a/ Start (Play Button))
+• run main class MainActivity (Path: app/kotlin+java/com.fhdw.biot.speech.iot/MainActivity.java,
+start (PlayButton) first time can take 1 minute or so)
+• Android App symbol will be added to the start screen and will open automatically
+7.2. Configure (env vars, settings)
+Thread Count for Database Writes: The number of threads used for asynchronous database
+operations is configured in DB.java.
+7.3. Testing basics
+Class AndererUnitTest
+@Before
+Creates Context for the notification
+• Simulate a Notification Manager to avoid the need for hardware simulation, based on the
+context of the integrated Notification Service in Android.
+testDefineSensorEvent
+13• Creates a fixed sensor type, a value, an ID, and an axis for the notification. Additionally, use the
+current time. Finally, create an event with these results. A notification should be triggered
+immediately after the sensor event is defined, as the class is defined accordingly. Afterwards,
+the various entered values should be checked for correctness.
+testCreateNotification
+• Actively creates a notification based on Sensortype, ID, axis and a pre-defined value. The
+context is simulated. With Verify it is checked if a notification channel has been created.
+Additionally, the value, ID, axis and importance (Default) will be checked. If these values are
+correct, then the data for the notification will be too. Afterwards it will be checked it a
+notification is sent.
+DBSchreibenTest: * Creates a new event for the database containing timestamp, sensor type:
+MAGNET, axis: X, "magEvent_" and context. The databaseWriteExecutor is executed and the event
+added.
+7.4. Testing
+This section explains how to verify that your MQTT broker, phone, and Android application all
+communicate correctly.
+7.4.1. Publish From PC (Manual Test)
+Use mosquitto_pub from your computer to send test messages directly into the broker.
+Example:
+mosquitto_pub -h 192.168.xxx.xxx -t Sensor/Bewegung -m "1.2,5.6,9.0"
+Expected behavior:
+• The app updates the Bewegung TextView
+• A new row is inserted into the Room database
+• Logcat shows the incoming message
+• No crashes or MQTT disconnects occur
+Repeat for the other topics:
+mosquitto_pub -h 192.168.xxx.xxx -t Sensor/Gyro -m "0.5,1.2,3.4"
+mosquitto_pub -h 192.168.xxx.xxx -t Sensor/Zeit -m "2025-01-01T12:00:00Z"
+7.4.2. Check If the Phone Can Reach the Broker
+To verify that your physical Android device can connect to the MQTT broker running on your PC,
+install any MQTT client app on your phone, such as:
+14• MQTT Dash
+• MQTT Client
+• MyMQTT
+7.4.3. Test Steps
+1. Open the MQTT client app on your phone.
+2. Create a new connection using your PC’s LAN IP address (the same one used in
+PHONE_BROKER).
+3.
+
+Source: Doku.pdf
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+3.4. MQTT Broker Setup (Required Before Running App) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+3.5. MQTT Connection Workflow . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.6. Processing Incoming Messages . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.7. Database Integration . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.8. Events . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+3.9. DBAccess .
+
+Source: Doku.pdf
+4.1. Main Classes and Responsibilities
+• MainActivity: Central controller, UI initialization, MQTT handling, database access
+• MqttHandler: MQTT client wrapper, connection management, message receive/send
+• BaseChartActivity: Base class for chart views, central chart logic
+• AccelActivity, GyroActivity, MagnetActivity: Display and filter respective sensor data
+• MainGraphActivity: Overview chart, filtering, LiveData management
+• EreignisActivity, NewEreignisActivity: Event management, RecyclerView adapters
+• SensorEreignis: Threshold monitoring, notifications
+• DatePickerHandler: Date selection for filtering
+• DouglasPeukerAlg: Data reduction for charts
+4.2. Database Structure
+• DB.java: RoomDatabase implementation, singleton, thread pool for writes
+• SensorDao, ValueSensorDAO: Access to entities (AccelData, GyroData, MagnetData, EreignisData,
+ValueSensor)
+• Entities: AccelData, GyroData, MagnetData, EreignisData, ValueSensor (each with timestamp
+and values)
+4.3. Simulation and Testing
+• SensorDataSimulator: Generates test data for sensors == Runtime & Deployment
+5. Runtime & Deployment
+• Example flow (one sequence diagram or text description)
+10The application is deployed as a standard Android APK und runs locally on the user’s mobile
+device. All data persistence und visualization processing are performed client-side on the device.
+No external server or cloud is required for core functionality.
+5.1. Running the Android App
+• The Android app behaves differently depending on where it’s running.
+11

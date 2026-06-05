@@ -1,0 +1,9 @@
+# Types of Events
+
+Based on the provided context, the document mentions events in relation to the Android application's architecture, but it does not explicitly list or define different types of events [source: Doku.pdf].
+
+The only specific event type mentioned in the context is:
+
+- **Magnetic sensor events (magEvent)**: Created in the DBSchreibenTest with sensor type MAGNET, axis X, and containing timestamp and context information [source: Doku.pdf]
+
+The document references event management...

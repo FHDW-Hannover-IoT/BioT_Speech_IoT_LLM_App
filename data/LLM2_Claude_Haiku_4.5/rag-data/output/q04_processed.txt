@@ -1,0 +1,1 @@
+I do not know today's date. The provided context is documentation about an Android IoT application and does not contain information about today's date. The only dates mentioned in the context are example test dates like "2025-01-01T12:00:00Z" used in MQTT testing examples [Doku.pdf].

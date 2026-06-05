@@ -35,7 +35,6 @@ class Settings:
     """
 
     def __init__(self) -> None:
-
         # ── LLM ──────────────────────────────────────────────────────────────
         provider = os.getenv("LLM_PROVIDER", "anthropic").strip().lower()
         if provider not in _SUPPORTED_PROVIDERS:
@@ -96,10 +95,6 @@ class Settings:
         # Maximum rows returned by any MCP tool
         self.mcp_max_rows: int = int(os.getenv("MCP_MAX_ROWS", "50"))
 
-        # Max rows per page for /data/accel|gyro|magnet (Android pagination).
-        # Android sends ?limit=N per page; server caps at this value.
-        self.data_fetch_page_size: int = int(os.getenv("DATA_FETCH_PAGE_SIZE", "500"))
-
         # ── MQTT Broker ───────────────────────────────────────────────────────
         self.mqtt_broker_host: str = os.getenv("MQTT_BROKER_HOST", "127.0.0.1").strip()
         self.mqtt_broker_port: int = int(os.getenv("MQTT_BROKER_PORT", "1883"))
@@ -119,13 +114,14 @@ class Settings:
         self.server_host: str = os.getenv("SERVER_HOST", "0.0.0.0").strip()
         self.server_port: int = int(os.getenv("SERVER_PORT", "8001"))
 
-        # ── Seeding ───────────────────────────────────────────────────────────
-        self.seed_on_startup: bool = os.getenv("SEED_ON_STARTUP", "true").strip().lower() not in ("false", "0", "no")
-        self.seed_hours: int = int(os.getenv("SEED_HOURS", "24"))
-        self.seed_random_seed: int = int(os.getenv("SEED_RANDOM_SEED", "42"))
-
         # ── Misc ──────────────────────────────────────────────────────────────
         self.mcp_fs_roots: str = os.getenv("MCP_FS_ROOTS", "").strip()
+        raw_manifest = os.getenv("RAG_MANIFEST_PATH", "").strip()
+        self.rag_manifest_path: Path = (
+            Path(raw_manifest)
+            if raw_manifest
+            else Path(__file__).resolve().parent.parent / "rag" / "rag_manifest.json"
+        )
 
     def __repr__(self) -> str:
         return (

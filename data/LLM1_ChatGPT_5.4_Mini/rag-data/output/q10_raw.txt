@@ -1,0 +1,9 @@
+It depends on **what device or app** you’re calibrating.
+
+In general, calibration usually starts by:
+1. Opening the device/app **Settings** or **Tools** menu
+2. Finding **Calibration**, **Calibrate**, or **Sensor Setup**
+3. Following the on-screen prompts
+4. Keeping the device still or placing it in the required position
+
+If you tell me **what you’re calibrating** (for example: a monitor, touchscreen, scale, joystick, printer, camera, or sensor), I can give you the exact steps.

@@ -1,0 +1,5 @@
+I do not know how to display a specific axis on the screen based on the provided context. 
+
+While the documentation mentions that the application displays sensor data for "acceleration, gyro, magnet, and time" using Android TextViews, and references activities like `AccelActivity`, `GyroActivity`, and `MagnetActivity` that "display and filter respective sensor data" [Doku.pdf], the specific instructions for how to display a particular axis are not included in the provided context.
+
+To get thi...

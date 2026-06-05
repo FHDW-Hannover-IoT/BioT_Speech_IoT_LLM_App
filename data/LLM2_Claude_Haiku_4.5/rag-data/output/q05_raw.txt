@@ -1,0 +1,19 @@
+# To turn off your system:
+
+**Windows:**
+- Click Start menu → Power → Shut down
+- Or press `Alt + F4` and select shutdown
+- Or use `Win + X` → Shut down
+
+**Mac:**
+- Click Apple menu → Shut Down
+- Or press `Control + Command + Power` button
+
+**Linux:**
+- Use `sudo shutdown -h now` in terminal
+- Or click system menu → Power Off
+
+**Chromebook:**
+- Click system menu (bottom-right) → Power → Shutdown
+
+Which operating system are you using? I can provide more specific steps if needed.

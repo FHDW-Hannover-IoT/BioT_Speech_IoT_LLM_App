@@ -1,0 +1,1 @@
+I don’t know from the provided context how to start calibration. The document mentions build/run steps, testing, MQTT setup, and app behavior, but not calibration instructions. [Doku.pdf]

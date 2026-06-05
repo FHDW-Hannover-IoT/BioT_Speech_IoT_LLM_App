@@ -1,0 +1,170 @@
+Question:
+What types of events are there?
+
+Context:
+Source: Doku.pdf
+If these values are
+correct, then the data for the notification will be too. Afterwards it will be checked it a
+notification is sent.
+DBSchreibenTest: * Creates a new event for the database containing timestamp, sensor type:
+MAGNET, axis: X, "magEvent_" and context. The databaseWriteExecutor is executed and the event
+added.
+7.4. Testing
+This section explains how to verify that your MQTT broker, phone, and Android application all
+communicate correctly.
+7.4.1. Publish From PC (Manual Test)
+Use mosquitto_pub from your computer to send test messages directly into the broker.
+Example:
+mosquitto_pub -h 192.168.xxx.xxx -t Sensor/Bewegung -m "1.2,5.6,9.0"
+Expected behavior:
+• The app updates the Bewegung TextView
+• A new row is inserted into the Room database
+• Logcat shows the incoming message
+• No crashes or MQTT disconnects occur
+Repeat for the other topics:
+mosquitto_pub -h 192.168.xxx.xxx -t Sensor/Gyro -m "0.5,1.2,3.4"
+mosquitto_pub -h 192.168.xxx.xxx -t Sensor/Zeit -m "2025-01-01T12:00:00Z"
+7.4.2. Check If the Phone Can Reach the Broker
+To verify that your physical Android device can connect to the MQTT broker running on your PC,
+install any MQTT client app on your phone, such as:
+14• MQTT Dash
+• MQTT Client
+• MyMQTT
+7.4.3. Test Steps
+1. Open the MQTT client app on your phone.
+2. Create a new connection using your PC’s LAN IP address (the same one used in
+PHONE_BROKER).
+3. Set the port to: 1883
+4. Choose protocol: MQTT (TCP)
+5. Subscribe to the following topics:
+◦ Sensor/Bewegung
+◦ Sensor/Gyro
+◦ Sensor/Zeit
+6. Publish test values from the phone app to confirm two-way communication.
+Example test messages:
+• Sensor/Bewegung → "1.2,4.5,6.7"
+• Sensor/Gyro → "0.1,0.2,0.3"
+• Sensor/Zeit → "2025-01-01T12:00:00Z"
+7.4.4. Expected Result
+If the phone MQTT app can:
+• Connect successfully
+• Subscribe to topics
+• Receive messages
+• Publish to the broker
+Your network, IP configuration, and Mosquitto setup are correct.
+This also confirms:
+• If the phone app connects but the Android application does not, the issue is inside the Android
+app code — not the network or broker.
+7.4.5. Extra Debugging Tips
+• Make sure your PC firewall allows Inbound TCP 1883
+• Ensure your phone and PC are on the same Wi-Fi network
+15• Test ping:
+ping 192.168.xxx.xxx
+• Restart Mosquitto:
+net stop mosquitto
+net start mosquito
+• If using a laptop, disable VPNs (they rewrite routes)
+8. Open Questions / Risks
+• List of things to be clarified or risks to watch
+9. Appendix
+• References (tickets, ADRs, external docs, etc.)
+• FHDW
+16
+
+Source: Doku.pdf
+Processing Incoming Messages
+Each topic is processed independently:
+• Sensor/Bewegung
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update accelerometer TextView
+◦ Insert values into the database
+• Sensor/Gyro
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update gyro TextView
+◦ Insert values into the database
+• Sensor/Zeit
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update timestamp TextView
+◦ Insert values into the database
+All UI modifications run on the main thread using runOnUiThread().
+3.7. Database Integration
+Two helper methods handle all Room database operations:
+5• storeSensor(ValueSensor sensor)
+◦ Runs in a background thread
+◦ Inserts a new row into the Room DB
+◦ Logs warnings on failure
+• loadDatabaseValues()
+◦ Runs in a background thread
+◦ Fetches all stored ValueSensor rows
+◦ Logs the total number of entries
+3.7.1. MqttHandler — Responsibilities
+MqttHandler is a wrapper for the Eclipse Paho asynchronous MQTT client. It manages:
+• Connecting
+• Automatic reconnecting
+• Subscribing
+• Publishing
+• Disconnecting
+• Forwarding incoming messages
+Asynchronous Connect
+Features:
+• Fully non-blocking
+• automaticReconnect = true
+• cleanSession = true
+Connection results are delivered via:
+• onConnected()
+• onFailure(Throwable)
+Subscription
+• Uses QoS 1 (“at least once”)
+• Logs both success and failure
+• Safe to call multiple times
+Publishing
+Supports:
+6• Normal transient messages
+• Retained messages (retained = true)
+Publishing is performed in a background thread to avoid blocking the UI.
+Disconnecting
+• Gracefully closes the MQTT connection
+• Updates internal connected state
+• Runs on a background thread
+• Prevents crashes when the activity is destroyed
+Receiving Messages
+Every MQTT message triggers:
+onMessageReceived(topic, payload)
+MainActivity uses this callback to:
+• Update UI fields
+• Parse sensor payloads
+• Insert data into Room DB
+This is the core mechanism for MQTT → Android UI → Database communication.
+73.8. Events
+3.9. DBAccess
+8
+
+Source: Doku.pdf
+. . . . . . . . . . . 14
+8. Open Questions / Risks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+9. Appendix . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+1• Goals: Real-time sensor data visualization, modular and maintainable code.
+• Non-goals: No cloud backend
+• How to run: See setup and deployment instructions below.
+2. Context
+Component Diagram:
+This IoT application listens for incoming MQTT sensor messages and displays them in real time
+inside the Android UI.
+It uses:
+• MQTT (Eclipse Paho) for sensor communication
+• Room Database for storing incoming sensor values
+• Android TextViews for live output of acceleration, gyro, magnet, and time
+• Douglas-Peuker algorithm for data reduction
+3. Architecture Overview
+3.1. Main Components and Responsibilities
+• MainActivity: Central controller for UI, MQTT, and database
+• MqttHandler: Handles MQTT connection, subscription, publishing, and message forwarding
+• BaseChartActivity: Base class for all chart activities, centralizes chart logic
+• AccelActivity, GyroActivity, MagnetActivity: Display and filter respective sensor data
+• MainGraphActivity: Overview chart, filtering, LiveData management
+• EreignisActivity, NewEreignisActivity: Event management, RecyclerView adapters
+• SensorEreignis: Threshold monitoring, notifications
+2

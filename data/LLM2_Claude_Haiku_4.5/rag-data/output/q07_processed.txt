@@ -1,0 +1,3 @@
+Based on the provided context, I do not know how to select a specific axis from the gyro sensor.
+
+The documentation shows that gyro sensor data is received as a combined payload in the format `x,y,z` [source], and the values are parsed into float values for X, Y, and Z [source]. However, the context does not provide information about how to programmatically select or filter a specific axis (X, Y, or Z) from the gyro sensor data after parsing.

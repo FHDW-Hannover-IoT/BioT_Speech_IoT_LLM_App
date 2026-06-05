@@ -1,0 +1,11 @@
+“Events” can mean different things depending on context. Common types include:
+
+- **Social events**: weddings, parties, concerts, festivals
+- **Corporate events**: conferences, meetings, product launches, trade shows
+- **Cultural events**: ceremonies, parades, exhibitions, religious events
+- **Sporting events**: matches, tournaments, marathons
+- **Educational events**: workshops, seminars, lectures, graduations
+- **Charity/fundraising events**: galas, auctions, donation drives
+- **Virtual events**: webinars, online conferences, livestreams
+
+If you mean **events in programming, databases, or statistics**, tell me the context and I’ll tailor the answer.

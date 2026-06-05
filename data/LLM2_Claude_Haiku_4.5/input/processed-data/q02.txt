@@ -1,0 +1,130 @@
+Question:
+How can I define events?
+
+Context:
+Source: Doku.pdf
+2. Hardware Dependency: The core function of the app requires an Android device.
+7. How-To (for developers)
+7.1. Build & Run Locally
+• download app folder from git (https://github.com/FHDW-Hannover-IoT/
+BioT_Speech_IoT_App.git) (click [ main v ] )
+• configure virtual device (we used a Pixel 8a) (Device Manager/ Add a new Device / Create
+Virtual Device/ Pixel 8a/ Start (Play Button))
+• run main class MainActivity (Path: app/kotlin+java/com.fhdw.biot.speech.iot/MainActivity.java,
+start (PlayButton) first time can take 1 minute or so)
+• Android App symbol will be added to the start screen and will open automatically
+7.2. Configure (env vars, settings)
+Thread Count for Database Writes: The number of threads used for asynchronous database
+operations is configured in DB.java.
+7.3. Testing basics
+Class AndererUnitTest
+@Before
+Creates Context for the notification
+• Simulate a Notification Manager to avoid the need for hardware simulation, based on the
+context of the integrated Notification Service in Android.
+testDefineSensorEvent
+13• Creates a fixed sensor type, a value, an ID, and an axis for the notification. Additionally, use the
+current time. Finally, create an event with these results. A notification should be triggered
+immediately after the sensor event is defined, as the class is defined accordingly. Afterwards,
+the various entered values should be checked for correctness.
+testCreateNotification
+• Actively creates a notification based on Sensortype, ID, axis and a pre-defined value. The
+context is simulated. With Verify it is checked if a notification channel has been created.
+Additionally, the value, ID, axis and importance (Default) will be checked. If these values are
+correct, then the data for the notification will be too. Afterwards it will be checked it a
+notification is sent.
+DBSchreibenTest: * Creates a new event for the database containing timestamp, sensor type:
+MAGNET, axis: X, "magEvent_" and context. The databaseWriteExecutor is executed and the event
+added.
+7.4. Testing
+This section explains how to verify that your MQTT broker, phone, and Android application all
+communicate correctly.
+7.4.1. Publish From PC (Manual Test)
+Use mosquitto_pub from your computer to send test messages directly into the broker.
+Example:
+mosquitto_pub -h 192.168.xxx.xxx -t Sensor/Bewegung -m "1.2,5.6,9.0"
+Expected behavior:
+• The app updates the Bewegung TextView
+• A new row is inserted into the Room database
+• Logcat shows the incoming message
+• No crashes or MQTT disconnects occur
+Repeat for the other topics:
+mosquitto_pub -h 192.168.xxx.xxx -t Sensor/Gyro -m "0.5,1.2,3.4"
+mosquitto_pub -h 192.168.xxx.xxx -t Sensor/Zeit -m "2025-01-01T12:00:00Z"
+7.4.2. Check If the Phone Can Reach the Broker
+To verify that your physical Android device can connect to the MQTT broker running on your PC,
+install any MQTT client app on your phone, such as:
+14• MQTT Dash
+• MQTT Client
+• MyMQTT
+7.4.3. Test Steps
+1. Open the MQTT client app on your phone.
+2. Create a new connection using your PC’s LAN IP address (the same one used in
+PHONE_BROKER).
+3.
+
+Source: Doku.pdf
+5.1.1. Running on an Emulator (Android Studio)
+• No network setup required.
+• The app automatically uses:
+tcp://10.0.2.2:1883
+• Because the emulator cannot access your PC directly — 10.0.2.2 is the gateway.
+• MQTT will work immediately if Mosquitto is running on your PC.
+5.1.2. Running on a Real Physical Phone
+Requirements:
+1. Mosquitto must be running on your PC
+2. Port 1883 must be open
+3. Phone and PC must be on the same Wi-Fi
+4. Correct LAN IP set in PHONE_BROKER
+5. No VPN, guest network, or firewall blocking
+After launching the app: * It will connect to the broker * Subscribe to sensor topics * Publish test
+messages * Display incoming sensor data * Save it to the local Room database
+If connection fails, you will see a Toast:
+"MQTT error: ..."
+And the log may show:
+SocketTimeoutException: failed to connect
+This always indicates a network/firewall/IP mismatch.
+6. Quality & Constraints
+Goal Strategy
+Performance (Data Ingestion) Use DB.databaseWriteExecutor to ensure high￾frequency sensor data insertion happens off the
+main thread, preventing UI freezes.
+12Performance (Filtering) Database queries are optimized using WHERE
+clauses on the indexed timestamp column.
+Dynamic observer management prevents
+conflicting asynchronous updates.
+Usability (Reactivity) LiveData ensures charts and data streams
+update automatically and smoothly, reducing
+perceived latency for the user.
+Usability (Consistency) BaseChartActivity and DatePickerHandler
+enforce consistent styling and interaction across
+the application’s filtering interface.
+1. Tech Stack Dependence: Strong dependency on Android OS, Java, AndroidX libraries (Room,
+LiveData), and the external MPAndroidChart library.
+2. Hardware Dependency: The core function of the app requires an Android device.
+7. How-To (for developers)
+7.1. Build & Run Locally
+• download app folder from git (https://github.com/FHDW-Hannover-IoT/
+BioT_Speech_IoT_App.git) (click [ main v ] )
+• configure virtual device (we used a Pixel 8a) (Device Manager/ Add a new Device / Create
+Virtual Device/ Pixel 8a/ Start (Play Button))
+• run main class MainActivity (Path: app/kotlin+java/com.fhdw.biot.speech.iot/MainActivity.java,
+start (PlayButton) first time can take 1 minute or so)
+• Android App symbol will be added to the start screen and will open automatically
+7.2. Configure (env vars, settings)
+Thread Count for Database Writes: The number of threads used for asynchronous database
+operations is configured in DB.java.
+7.3. Testing basics
+Class AndererUnitTest
+@Before
+Creates Context for the notification
+• Simulate a Notification Manager to avoid the need for hardware simulation, based on the
+context of the integrated Notification Service in Android.
+testDefineSensorEvent
+13• Creates a fixed sensor type, a value, an ID, and an axis for the notification. Additionally, use the
+current time. Finally, create an event with these results. A notification should be triggered
+immediately after the sensor event is defined, as the class is defined accordingly. Afterwards,
+the various entered values should be checked for correctness.
+testCreateNotification
+• Actively creates a notification based on Sensortype, ID, axis and a pre-defined value. The
+context is simulated. With Verify it is checked if a notification channel has been created.
+Additionally, the value, ID, axis and importance (Default) will be checked.

@@ -1,0 +1,129 @@
+Question:
+How do I view sensor data?
+
+Context:
+Source: Doku.pdf
+. . . . . . . . . . . 14
+8. Open Questions / Risks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+9. Appendix . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+1• Goals: Real-time sensor data visualization, modular and maintainable code.
+• Non-goals: No cloud backend
+• How to run: See setup and deployment instructions below.
+2. Context
+Component Diagram:
+This IoT application listens for incoming MQTT sensor messages and displays them in real time
+inside the Android UI.
+It uses:
+• MQTT (Eclipse Paho) for sensor communication
+• Room Database for storing incoming sensor values
+• Android TextViews for live output of acceleration, gyro, magnet, and time
+• Douglas-Peuker algorithm for data reduction
+3. Architecture Overview
+3.1. Main Components and Responsibilities
+• MainActivity: Central controller for UI, MQTT, and database
+• MqttHandler: Handles MQTT connection, subscription, publishing, and message forwarding
+• BaseChartActivity: Base class for all chart activities, centralizes chart logic
+• AccelActivity, GyroActivity, MagnetActivity: Display and filter respective sensor data
+• MainGraphActivity: Overview chart, filtering, LiveData management
+• EreignisActivity, NewEreignisActivity: Event management, RecyclerView adapters
+• SensorEreignis: Threshold monitoring, notifications
+2
+
+Source: Doku.pdf
+4.1. Main Classes and Responsibilities
+• MainActivity: Central controller, UI initialization, MQTT handling, database access
+• MqttHandler: MQTT client wrapper, connection management, message receive/send
+• BaseChartActivity: Base class for chart views, central chart logic
+• AccelActivity, GyroActivity, MagnetActivity: Display and filter respective sensor data
+• MainGraphActivity: Overview chart, filtering, LiveData management
+• EreignisActivity, NewEreignisActivity: Event management, RecyclerView adapters
+• SensorEreignis: Threshold monitoring, notifications
+• DatePickerHandler: Date selection for filtering
+• DouglasPeukerAlg: Data reduction for charts
+4.2. Database Structure
+• DB.java: RoomDatabase implementation, singleton, thread pool for writes
+• SensorDao, ValueSensorDAO: Access to entities (AccelData, GyroData, MagnetData, EreignisData,
+ValueSensor)
+• Entities: AccelData, GyroData, MagnetData, EreignisData, ValueSensor (each with timestamp
+and values)
+4.3. Simulation and Testing
+• SensorDataSimulator: Generates test data for sensors == Runtime & Deployment
+5. Runtime & Deployment
+• Example flow (one sequence diagram or text description)
+10The application is deployed as a standard Android APK und runs locally on the user’s mobile
+device. All data persistence und visualization processing are performed client-side on the device.
+No external server or cloud is required for core functionality.
+5.1. Running the Android App
+• The Android app behaves differently depending on where it’s running.
+11
+
+Source: Doku.pdf
+Processing Incoming Messages
+Each topic is processed independently:
+• Sensor/Bewegung
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update accelerometer TextView
+◦ Insert values into the database
+• Sensor/Gyro
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update gyro TextView
+◦ Insert values into the database
+• Sensor/Zeit
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update timestamp TextView
+◦ Insert values into the database
+All UI modifications run on the main thread using runOnUiThread().
+3.7. Database Integration
+Two helper methods handle all Room database operations:
+5• storeSensor(ValueSensor sensor)
+◦ Runs in a background thread
+◦ Inserts a new row into the Room DB
+◦ Logs warnings on failure
+• loadDatabaseValues()
+◦ Runs in a background thread
+◦ Fetches all stored ValueSensor rows
+◦ Logs the total number of entries
+3.7.1. MqttHandler — Responsibilities
+MqttHandler is a wrapper for the Eclipse Paho asynchronous MQTT client. It manages:
+• Connecting
+• Automatic reconnecting
+• Subscribing
+• Publishing
+• Disconnecting
+• Forwarding incoming messages
+Asynchronous Connect
+Features:
+• Fully non-blocking
+• automaticReconnect = true
+• cleanSession = true
+Connection results are delivered via:
+• onConnected()
+• onFailure(Throwable)
+Subscription
+• Uses QoS 1 (“at least once”)
+• Logs both success and failure
+• Safe to call multiple times
+Publishing
+Supports:
+6• Normal transient messages
+• Retained messages (retained = true)
+Publishing is performed in a background thread to avoid blocking the UI.
+Disconnecting
+• Gracefully closes the MQTT connection
+• Updates internal connected state
+• Runs on a background thread
+• Prevents crashes when the activity is destroyed
+Receiving Messages
+Every MQTT message triggers:
+onMessageReceived(topic, payload)
+MainActivity uses this callback to:
+• Update UI fields
+• Parse sensor payloads
+• Insert data into Room DB
+This is the core mechanism for MQTT → Android UI → Database communication.
+73.8. Events
+3.9. DBAccess
+8

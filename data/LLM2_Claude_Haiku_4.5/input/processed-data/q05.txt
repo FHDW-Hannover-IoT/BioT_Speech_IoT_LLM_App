@@ -1,0 +1,175 @@
+Question:
+How do I turn off the system?
+
+Context:
+Source: Doku.pdf
+Processing Incoming Messages
+Each topic is processed independently:
+• Sensor/Bewegung
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update accelerometer TextView
+◦ Insert values into the database
+• Sensor/Gyro
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update gyro TextView
+◦ Insert values into the database
+• Sensor/Zeit
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update timestamp TextView
+◦ Insert values into the database
+All UI modifications run on the main thread using runOnUiThread().
+3.7. Database Integration
+Two helper methods handle all Room database operations:
+5• storeSensor(ValueSensor sensor)
+◦ Runs in a background thread
+◦ Inserts a new row into the Room DB
+◦ Logs warnings on failure
+• loadDatabaseValues()
+◦ Runs in a background thread
+◦ Fetches all stored ValueSensor rows
+◦ Logs the total number of entries
+3.7.1. MqttHandler — Responsibilities
+MqttHandler is a wrapper for the Eclipse Paho asynchronous MQTT client. It manages:
+• Connecting
+• Automatic reconnecting
+• Subscribing
+• Publishing
+• Disconnecting
+• Forwarding incoming messages
+Asynchronous Connect
+Features:
+• Fully non-blocking
+• automaticReconnect = true
+• cleanSession = true
+Connection results are delivered via:
+• onConnected()
+• onFailure(Throwable)
+Subscription
+• Uses QoS 1 (“at least once”)
+• Logs both success and failure
+• Safe to call multiple times
+Publishing
+Supports:
+6• Normal transient messages
+• Retained messages (retained = true)
+Publishing is performed in a background thread to avoid blocking the UI.
+Disconnecting
+• Gracefully closes the MQTT connection
+• Updates internal connected state
+• Runs on a background thread
+• Prevents crashes when the activity is destroyed
+Receiving Messages
+Every MQTT message triggers:
+onMessageReceived(topic, payload)
+MainActivity uses this callback to:
+• Update UI fields
+• Parse sensor payloads
+• Insert data into Room DB
+This is the core mechanism for MQTT → Android UI → Database communication.
+73.8. Events
+3.9. DBAccess
+8
+
+Source: Doku.pdf
+• This allows your Android phone to connect without username/password.
+• Restart Mosquitto after saving the file.
+Allow Mosquitto in Windows Firewall
+• Open Windows Firewall → “Allow an app” → enable:
+◦ mosquitto.exe
+◦ Port 1883/TCP
+• If this is blocked, the app will fail with:
+java.net.SocketTimeoutException: failed to connect
+Find Your PC’s LAN IP
+• Run this in PowerShell or CMD:
+ipconfig
+• Look for:
+IPv4 Address : . . . : 192.168.xxx.xxx
+• Copy this IP.
+• You must put this IP in your Android code:
+private static final String PHONE_BROKER = "tcp://192.168.xxx.xxx:1883";
+• This IP must match your PC’s Wi-Fi network.
+Phone and PC Must Be on the Same Network
+• Your Android phone must be:
+◦ On Wi-Fi (same router as PC)
+◦ NOT on mobile data
+◦ NOT on guest Wi-Fi
+◦ NOT behind VPN
+◦ If networks differ → MQTT cannot communicate.
+Topic Meaning Data Format
+Sensor/Bewegung Acceleration data x,y,z
+4Sensor/Gyro Gyroscope data x,y,z
+Sensor/Zeit Timestamp string YYYY-MM-DD…
+These are the topics that the application automatically subscribes to after a successful MQTT
+connection.
+3.5. MQTT Connection Workflow
+Startup Sequence: 1. Generate a unique MQTT client ID 2. Select the correct broker URL (emulator
+vs. real device) 3. Instantiate MqttHandler 4. Register the message listener callback 5. Connect
+asynchronously to the broker
+On Successful Connection: * Subscribe to all three sensor topics (Sensor/Bewegung, Sensor/Gyro,
+Sensor/Zeit) * Publish retained initial values for testing * Load historical database entries and log
+the count
+3.6. Processing Incoming Messages
+Each topic is processed independently:
+• Sensor/Bewegung
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update accelerometer TextView
+◦ Insert values into the database
+• Sensor/Gyro
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update gyro TextView
+◦ Insert values into the database
+• Sensor/Zeit
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update timestamp TextView
+◦ Insert values into the database
+All UI modifications run on the main thread using runOnUiThread().
+3.7. Database Integration
+Two helper methods handle all Room database operations:
+5• storeSensor(ValueSensor sensor)
+◦ Runs in a background thread
+◦ Inserts a new row into the Room DB
+◦ Logs warnings on failure
+• loadDatabaseValues()
+◦ Runs in a background thread
+◦ Fetches all stored ValueSensor rows
+◦ Logs the total number of entries
+3.7.1. MqttHandler — Responsibilities
+MqttHandler is a wrapper for the Eclipse Paho asynchronous MQTT client. It manages:
+• Connecting
+• Automatic reconnecting
+• Subscribing
+• Publishing
+• Disconnecting
+• Forwarding incoming messages
+Asynchronous Connect
+Features:
+• Fully non-blocking
+• automaticReconnect = true
+• cleanSession = true
+Connection results are delivered via:
+• onConnected()
+• onFailure(Throwable)
+Subscription
+• Uses QoS 1 (“at least once”)
+• Logs both success and failure
+• Safe to call multiple times
+Publishing
+Supports:
+6• Normal transient messages
+• Retained messages (retained = true)
+Publishing is performed in a background thread to avoid blocking the UI.
+
+Source: Doku.pdf
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+3.4. MQTT Broker Setup (Required Before Running App) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+3.5. MQTT Connection Workflow . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.6. Processing Incoming Messages . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.7. Database Integration . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.8. Events . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+3.9. DBAccess .

@@ -1,0 +1,1 @@
+I do not know. The provided context mentions sensor topics and example gyro values, but it does not explain how to select a specific axis from the gyro sensor. [Doku.pdf]

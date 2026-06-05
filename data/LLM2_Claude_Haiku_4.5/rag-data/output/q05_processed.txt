@@ -1,0 +1,1 @@
+I do not know. The provided context from Doku.pdf does not contain information about how to turn off the system. The documentation covers MQTT connection workflows, message processing, database integration, and system setup, but does not include instructions for shutting down or turning off the system.

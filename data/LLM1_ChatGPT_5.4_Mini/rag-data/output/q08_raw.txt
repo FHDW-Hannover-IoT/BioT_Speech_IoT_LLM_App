@@ -1,0 +1,8 @@
+If you mean **your system/app events**, the exact steps depend on what platform you’re using:
+
+- **Windows:** Open **Event Viewer** → press **Win + R**, type `eventvwr`, press Enter.
+- **macOS:** Open **Console** app.
+- **Linux:** Check logs with commands like `journalctl` or files in `/var/log`.
+- **Web app / admin dashboard:** Look for an **Events**, **Logs**, or **Audit log** section in the sidebar or settings.
+
+If you want, tell me **which system or app** you’re using, and I’ll give the exact steps.

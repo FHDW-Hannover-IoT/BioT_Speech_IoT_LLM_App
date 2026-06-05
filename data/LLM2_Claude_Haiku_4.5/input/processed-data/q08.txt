@@ -1,0 +1,66 @@
+Question:
+How can I view the events?
+
+Context:
+Source: Doku.pdf
+. . . . . . . . . . . 14
+8. Open Questions / Risks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+9. Appendix . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+1• Goals: Real-time sensor data visualization, modular and maintainable code.
+• Non-goals: No cloud backend
+• How to run: See setup and deployment instructions below.
+2. Context
+Component Diagram:
+This IoT application listens for incoming MQTT sensor messages and displays them in real time
+inside the Android UI.
+It uses:
+• MQTT (Eclipse Paho) for sensor communication
+• Room Database for storing incoming sensor values
+• Android TextViews for live output of acceleration, gyro, magnet, and time
+• Douglas-Peuker algorithm for data reduction
+3. Architecture Overview
+3.1. Main Components and Responsibilities
+• MainActivity: Central controller for UI, MQTT, and database
+• MqttHandler: Handles MQTT connection, subscription, publishing, and message forwarding
+• BaseChartActivity: Base class for all chart activities, centralizes chart logic
+• AccelActivity, GyroActivity, MagnetActivity: Display and filter respective sensor data
+• MainGraphActivity: Overview chart, filtering, LiveData management
+• EreignisActivity, NewEreignisActivity: Event management, RecyclerView adapters
+• SensorEreignis: Threshold monitoring, notifications
+2
+
+Source: Doku.pdf
+4.1. Main Classes and Responsibilities
+• MainActivity: Central controller, UI initialization, MQTT handling, database access
+• MqttHandler: MQTT client wrapper, connection management, message receive/send
+• BaseChartActivity: Base class for chart views, central chart logic
+• AccelActivity, GyroActivity, MagnetActivity: Display and filter respective sensor data
+• MainGraphActivity: Overview chart, filtering, LiveData management
+• EreignisActivity, NewEreignisActivity: Event management, RecyclerView adapters
+• SensorEreignis: Threshold monitoring, notifications
+• DatePickerHandler: Date selection for filtering
+• DouglasPeukerAlg: Data reduction for charts
+4.2. Database Structure
+• DB.java: RoomDatabase implementation, singleton, thread pool for writes
+• SensorDao, ValueSensorDAO: Access to entities (AccelData, GyroData, MagnetData, EreignisData,
+ValueSensor)
+• Entities: AccelData, GyroData, MagnetData, EreignisData, ValueSensor (each with timestamp
+and values)
+4.3. Simulation and Testing
+• SensorDataSimulator: Generates test data for sensors == Runtime & Deployment
+5. Runtime & Deployment
+• Example flow (one sequence diagram or text description)
+10The application is deployed as a standard Android APK und runs locally on the user’s mobile
+device. All data persistence und visualization processing are performed client-side on the device.
+No external server or cloud is required for core functionality.
+5.1. Running the Android App
+• The Android app behaves differently depending on where it’s running.
+11
+
+Source: Doku.pdf
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.7. Database Integration . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.8. Events . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+3.9. DBAccess . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+3.10. Class Diagram . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+4. Component and Class Overview . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

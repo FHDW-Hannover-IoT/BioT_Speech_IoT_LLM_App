@@ -19,6 +19,7 @@ Tools exposed:
     get_event_log(limit)                — ereignis_data entries
     get_row_count(table)                — per-table counts + latest timestamp
     execute_query(sql)                  — read-only SELECT (mode=ro enforced)
+    query_rag(question, top_k)          — project docs via vector store
 
 Run standalone (for testing):
     uv run python -m mcp_server.sensor_mcp_server
@@ -28,6 +29,7 @@ Run via main.py:
 """
 
 import time
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
@@ -35,6 +37,7 @@ from app.logger import get_logger
 from config.settings import settings
 from database.db_context import DbContext
 from database.sensor_repository import SensorRepository
+from mcp_server.rag_tools import query_rag as _query_rag
 
 log = get_logger(__name__)
 
@@ -55,6 +58,7 @@ mcp = FastMCP(
         "ereignis_data. All timestamps are Unix milliseconds."
     ),
 )
+mcp.settings.stateless_http = True
 
 # ── Sensor → table mapping ────────────────────────────────────────────────────
 
@@ -110,6 +114,15 @@ def _format_age(ts_ms: int) -> str:
     if age_s < 120:
         return f"{age_s:.0f} seconds ago"
     return f"{age_s / 60:.1f} minutes ago"
+
+
+def _get_rag_manifest_path() -> Path:
+    path_value = getattr(settings, "rag_manifest_path", None)
+    if isinstance(path_value, Path):
+        return path_value
+    if path_value:
+        return Path(str(path_value))
+    return Path(__file__).resolve().parent.parent / "rag" / "rag_manifest.json"
 
 
 # ── MCP Tools ─────────────────────────────────────────────────────────────────
@@ -387,6 +400,21 @@ def execute_query(sql: str) -> str:
     except Exception as exc:
         log.warning("execute_query error: %s", exc)
         return f"Query error: {exc}"
+
+
+@mcp.tool()
+def query_rag(question: str, top_k: int = 6) -> str:
+    """
+    Query the RAG vector store built from project documents.
+
+    Use for: documentation questions, architecture, requirements, glossary.
+
+    Args:
+        question: User question to answer.
+        top_k: Number of passages to use (default 6).
+    """
+    log.info("MCP tool: query_rag(question=%r, top_k=%d)", question, top_k)
+    return _query_rag(question, top_k)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

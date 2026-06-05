@@ -1,0 +1,11 @@
+Based on the provided context, events are defined through the following process [source: Doku.pdf]:
+
+To define events, you need to:
+
+1. **Create a fixed sensor type** - specify the type of sensor
+2. **Set a value** - provide the sensor reading value
+3. **Assign an ID** - give the event an identifier
+4. **Specify an axis** - define which axis (e.g., X, Y, Z) the measurement is on
+5. **Use the current time** - timestamp the event
+
+According to the testing example provided, the `testDefineSensor...

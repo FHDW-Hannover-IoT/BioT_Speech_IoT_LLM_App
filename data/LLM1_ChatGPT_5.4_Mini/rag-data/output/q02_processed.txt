@@ -1,0 +1,1 @@
+The context does not explain how to define events in detail. It only says that event management is handled by `EreignisActivity` and `NewEreignisActivity`, and that `testDefineSensorEvent` creates an event from a sensor type, value, ID, axis, and current time [Doku.pdf].

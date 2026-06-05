@@ -1,0 +1,1 @@
+I don’t know. The provided context explains how to run and connect the app to MQTT, but it does not say how to turn off the system.

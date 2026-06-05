@@ -1,0 +1,30 @@
+If you mean in **matplotlib**, you can show only one specific axis by turning the others off.
+
+### Show only the x-axis
+```python
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots()
+ax.plot([1, 2, 3], [4, 5, 6])
+
+ax.spines['left'].set_visible(False)
+ax.spines['right'].set_visible(False)
+ax.yaxis.set_visible(False)
+
+plt.show()
+```
+
+### Show only the y-axis
+```python
+ax.spines['bottom'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.xaxis.set_visible(False)
+```
+
+### If you just want to make one axis visible after hiding it
+```python
+ax.xaxis.set_visible(True)
+ax.yaxis.set_visible(True)
+```
+
+If you meant a different tool or framework, tell me which one and I’ll give the exact code.

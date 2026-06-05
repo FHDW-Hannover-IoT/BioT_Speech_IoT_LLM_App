@@ -1,0 +1,1 @@
+I don’t know. The provided context mentions sensor payloads being parsed into X/Y/Z values and updated in TextViews, but it does not explain how to display a specific axis on the screen. [Doku.pdf]

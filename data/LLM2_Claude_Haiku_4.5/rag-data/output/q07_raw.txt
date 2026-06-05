@@ -1,0 +1,43 @@
+# Selecting a Specific Axis from the Gyro Sensor
+
+The method depends on your platform and library:
+
+## **LEGO Mindstorms (EV3/NXT)**
+```python
+# Using ev3dev2 library
+from ev3_dc.sensor import GyroSensor
+
+gyro = GyroSensor()
+x_value = gyro.angle_and_rate[0]  # X-axis angle
+y_value = gyro.angle_and_rate[1]  # Y-axis angle
+z_value = gyro.angle_and_rate[2]  # Z-axis angle
+```
+
+## **Arduino (MPU6050 example)**
+```cpp
+#include "MPU6050.h"
+
+MPU6050 gyro;
+int16_t gx, gy, gz;  // Gyro values
+
+gyro.getRotation(&gx, &gy, &gz);
+// Now use individual axes: gx, gy, gz
+```
+
+## **Python with MPU6050**
+```python
+from mpu6050 import mpu6050
+
+sensor = mpu6050(0x68)
+gyro_data = sensor.get_gyro_data()
+
+x = gyro_data['x']  # X-axis
+y = gyro_data['y']  # Y-axis
+z = gyro_data['z']  # Z-axis
+```
+
+## **General Approach**
+- Most gyro libraries return a **3-axis tuple/array** (x, y, z)
+- Access individual axes by **index** `[0], [1], [2]` or **named keys** `['x'], ['y'], ['z']`
+
+**What platform/library are you using?** I can provide more specific code.

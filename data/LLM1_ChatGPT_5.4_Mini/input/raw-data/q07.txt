@@ -1,0 +1,1 @@
+How do I select a specific axis from the gyro sensor?

@@ -1,0 +1,7 @@
+If you mean **turn off a computer**:
+
+- **Windows:** Start menu → **Power** → **Shut down**
+- **Mac:** Apple menu  → **Shut Down**
+- **Linux:** System menu → **Power Off / Shut Down**
+
+If you mean **a specific device or system** (phone, server, home security, car, etc.), tell me which one and I’ll give the exact steps.

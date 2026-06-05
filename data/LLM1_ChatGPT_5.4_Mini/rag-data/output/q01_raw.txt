@@ -1,0 +1,9 @@
+It depends on the device or app you’re using.
+
+Common ways to view sensor data:
+- **On the device itself:** Open the **Sensors**, **Diagnostics**, or **Status** menu.
+- **In a mobile app:** Connect the sensor, then check the **Dashboard**, **Live Data**, or **Telemetry** tab.
+- **On a computer:** Use the manufacturer’s software or a web dashboard to view real-time and logged data.
+- **Via API/serial/CSV:** Some sensors export data to a file, serial monitor, or an endpoint.
+
+If you tell me **which sensor/device/app** you mean, I can give exact steps.

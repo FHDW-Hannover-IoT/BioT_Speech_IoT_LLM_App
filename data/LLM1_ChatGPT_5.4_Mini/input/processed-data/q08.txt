@@ -1,0 +1,91 @@
+Question:
+How can I view the events?
+
+Context:
+Source: Doku.pdf
+Processing Incoming Messages
+Each topic is processed independently:
+• Sensor/Bewegung
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update accelerometer TextView
+◦ Insert values into the database
+• Sensor/Gyro
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update gyro TextView
+◦ Insert values into the database
+• Sensor/Zeit
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update timestamp TextView
+◦ Insert values into the database
+All UI modifications run on the main thread using runOnUiThread().
+3.7. Database Integration
+Two helper methods handle all Room database operations:
+5• storeSensor(ValueSensor sensor)
+◦ Runs in a background thread
+◦ Inserts a new row into the Room DB
+◦ Logs warnings on failure
+• loadDatabaseValues()
+◦ Runs in a background thread
+◦ Fetches all stored ValueSensor rows
+◦ Logs the total number of entries
+3.7.1. MqttHandler — Responsibilities
+MqttHandler is a wrapper for the Eclipse Paho asynchronous MQTT client. It manages:
+• Connecting
+• Automatic reconnecting
+• Subscribing
+• Publishing
+• Disconnecting
+• Forwarding incoming messages
+Asynchronous Connect
+Features:
+• Fully non-blocking
+• automaticReconnect = true
+• cleanSession = true
+Connection results are delivered via:
+• onConnected()
+• onFailure(Throwable)
+Subscription
+• Uses QoS 1 (“at least once”)
+• Logs both success and failure
+• Safe to call multiple times
+Publishing
+Supports:
+6• Normal transient messages
+• Retained messages (retained = true)
+Publishing is performed in a background thread to avoid blocking the UI.
+Disconnecting
+• Gracefully closes the MQTT connection
+• Updates internal connected state
+• Runs on a background thread
+• Prevents crashes when the activity is destroyed
+Receiving Messages
+Every MQTT message triggers:
+onMessageReceived(topic, payload)
+MainActivity uses this callback to:
+• Update UI fields
+• Parse sensor payloads
+• Insert data into Room DB
+This is the core mechanism for MQTT → Android UI → Database communication.
+73.8. Events
+3.9. DBAccess
+8
+
+Source: Doku.pdf
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+3.4. MQTT Broker Setup (Required Before Running App) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+3.5. MQTT Connection Workflow . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.6. Processing Incoming Messages . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.7. Database Integration . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.8. Events . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+3.9. DBAccess .
+
+Source: Doku.pdf
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.7. Database Integration . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.8. Events . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+3.9. DBAccess . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+3.10. Class Diagram . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+4. Component and Class Overview . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

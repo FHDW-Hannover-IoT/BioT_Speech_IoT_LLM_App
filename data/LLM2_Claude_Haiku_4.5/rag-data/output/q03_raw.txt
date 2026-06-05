@@ -1,0 +1,37 @@
+# Types of Events
+
+Events can be categorized in many ways:
+
+## By Purpose
+- **Business** – conferences, trade shows, meetings
+- **Social** – parties, weddings, reunions
+- **Educational** – seminars, workshops, lectures
+- **Entertainment** – concerts, festivals, sporting events
+- **Fundraising** – charity galas, benefit dinners
+- **Promotional** – product launches, grand openings
+
+## By Scale
+- **Personal** – intimate gatherings
+- **Small** – 10-100 people
+- **Medium** – 100-1,000 people
+- **Large** – 1,000+ people
+
+## By Format
+- **In-person** – physical attendees
+- **Virtual** – online/digital
+- **Hybrid** – combination of in-person and virtual
+
+## By Duration
+- **One-time** – single day or occasion
+- **Multi-day** – conferences, festivals
+- **Recurring** – annual events, weekly meetups
+
+## By Type
+- Corporate events
+- Community events
+- Religious/ceremonial events
+- Sports events
+- Cultural events
+- Networking events
+
+Is there a specific category of events you'd like to know more about?

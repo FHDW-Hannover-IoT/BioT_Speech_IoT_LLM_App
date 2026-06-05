@@ -1,0 +1,15 @@
+Based on the provided context, here are the ways you can view sensor data in this application:
+
+## Real-Time Display in UI
+
+The application displays live sensor data directly in the Android UI using **TextViews** [source: Doku.pdf]:
+- **Acceleration data** from the accelerometer
+- **Gyro data** from the gyroscope  
+- **Magnetometer data**
+- **Timestamp information**
+
+These TextViews are updated in real-time as MQTT sensor messages arrive [source: Doku.pdf].
+
+## Chart Activities
+
+The applicati...

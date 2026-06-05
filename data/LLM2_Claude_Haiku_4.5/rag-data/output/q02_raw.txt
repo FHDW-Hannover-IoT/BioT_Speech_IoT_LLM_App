@@ -1,0 +1,44 @@
+# Defining Events
+
+The answer depends on what you're working with. Here are the most common contexts:
+
+## **JavaScript**
+```javascript
+// Method 1: HTML attribute
+<button onclick="handleClick()">Click me</button>
+
+// Method 2: addEventListener
+element.addEventListener('click', function(event) {
+  console.log('Clicked!');
+});
+
+// Method 3: Event property
+element.onclick = function(event) {
+  console.log('Clicked!');
+};
+```
+
+## **Custom Events (JavaScript)**
+```javascript
+// Create
+const event = new CustomEvent('myEvent', {
+  detail: { message: 'Hello' }
+});
+
+// Dispatch
+element.dispatchEvent(event);
+
+// Listen
+element.addEventListener('myEvent', (e) => {
+  console.log(e.detail.message);
+});
+```
+
+## **Other Contexts**
+
+- **React**: Use `onClick`, `onChange`, etc.
+- **Vue**: Use `@click`, `@input`, etc.
+- **Python/Business**: Events are incidents or occurrences you track
+- **Database**: Events are logged actions or changes
+
+**What specific context are you asking about?** I can provide more detailed help if you clarify.

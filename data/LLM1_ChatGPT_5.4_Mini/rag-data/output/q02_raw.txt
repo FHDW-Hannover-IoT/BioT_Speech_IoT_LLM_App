@@ -1,0 +1,30 @@
+In general, **events** are defined by specifying:
+
+1. **A name** — what happened  
+   - e.g. `user_signed_up`, `order_paid`
+
+2. **A payload/data structure** — the information carried with the event  
+   - e.g. user id, timestamp, order id, amount
+
+3. **An emitter/source** — the part of the system that publishes the event  
+   - e.g. authentication service, payment service
+
+4. **Optional metadata** — useful context  
+   - e.g. event id, version, correlation id, created-at time
+
+Example event shape:
+
+```json
+{
+  "type": "order_paid",
+  "id": "evt_123",
+  "timestamp": "2026-06-04T12:00:00Z",
+  "data": {
+    "order_id": "ord_456",
+    "amount": 49.99,
+    "currency": "USD"
+  }
+}
+```
+
+If you mean **events in a specific system**—like JavaScript, Python, C#, databases, or event-driven architecture—tell me which one and I’ll show the exact way to define them.

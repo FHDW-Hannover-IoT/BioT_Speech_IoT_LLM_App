@@ -1,0 +1,42 @@
+# Displaying a Specific Axis
+
+The answer depends on what you're working with. Here are the most common scenarios:
+
+## **Matplotlib (Python)**
+```python
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots()
+ax.plot([1, 2, 3], [1, 4, 9])
+
+# Show only specific axes
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+# Keep 'left' and 'bottom' visible
+
+plt.show()
+```
+
+## **Display Only One Axis**
+```python
+# Show only the X-axis
+ax.spines['left'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+ax.yaxis.set_visible(False)
+```
+
+## **3D Plots (Matplotlib)**
+```python
+from mpl_toolkits.mplot3d import Axes3D
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+# All three axes (X, Y, Z) display by default
+```
+
+## **Other Contexts**
+- **Computer Graphics/Game Engines**: Tell me the specific software (Unity, Unreal, Blender, etc.)
+- **CAD Software**: Specify the program (AutoCAD, SolidWorks, etc.)
+
+**What specific tool or framework are you using?** I can provide more targeted help.

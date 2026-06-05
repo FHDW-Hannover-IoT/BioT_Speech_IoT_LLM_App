@@ -1,0 +1,5 @@
+Based on the provided context, I do not have specific instructions on how to view the events. 
+
+The context mentions that the application includes event management components (`EreignisActivity` and `NewEreignisActivity`) [Source: Doku.pdf] and that there is a section on "Events" in the documentation [Source: Doku.pdf], but the actual details of how to view events are not included in the provided excerpt.
+
+To get this information, you would likely need to refer to the complete documentation o...

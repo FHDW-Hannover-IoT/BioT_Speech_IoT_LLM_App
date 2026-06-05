@@ -1,0 +1,193 @@
+Question:
+How do I turn off the system?
+
+Context:
+Source: Doku.pdf
+• DatePickerHandler: Date selection for filtering
+• DouglasPeukerAlg: Data reduction for charts
+3.2. Key Design Decisions
+Decision Rationale
+Using Room & LiveData UI (charts) auto-updates when new data is
+written or filters change.
+Modular Visualization (BaseChartActivity) Centralizes chart setup logic, reduces code
+duplication, eases maintenance.
+Dynamic Observer Management In MainGraphActivity, LiveData observers are
+removed and re-registered on filter change to
+prevent conflicting updates.
+Vector Magnitude Calculation Sensor intensity is calculated using the
+Euclidean norm ($\sqrt{X^2 + Y^2 + Z^2}$)
+instead of simple summation.
+3.3. Interfaces / APIs
+• Android Notification Manager: Used by SensorEreignis to issue threshold warnings.
+3.4. MQTT Broker Setup (Required Before Running
+App)
+• The Android app connects to an MQTT broker running on your PC.
+• Follow these steps exactly.
+Install Mosquitto Broker (Windows)
+• Download from the official website: https://mosquitto.org/download/
+• Install with default settings
+Configure Mosquitto
+• Edit (or create):
+C:\Program Files\mosquitto\mosquitto.conf
+• Add:
+listener 1883
+allow_anonymous true
+3
+
+Source: Doku.pdf
+5.1.1. Running on an Emulator (Android Studio)
+• No network setup required.
+• The app automatically uses:
+tcp://10.0.2.2:1883
+• Because the emulator cannot access your PC directly — 10.0.2.2 is the gateway.
+• MQTT will work immediately if Mosquitto is running on your PC.
+5.1.2. Running on a Real Physical Phone
+Requirements:
+1. Mosquitto must be running on your PC
+2. Port 1883 must be open
+3. Phone and PC must be on the same Wi-Fi
+4. Correct LAN IP set in PHONE_BROKER
+5. No VPN, guest network, or firewall blocking
+After launching the app: * It will connect to the broker * Subscribe to sensor topics * Publish test
+messages * Display incoming sensor data * Save it to the local Room database
+If connection fails, you will see a Toast:
+"MQTT error: ..."
+And the log may show:
+SocketTimeoutException: failed to connect
+This always indicates a network/firewall/IP mismatch.
+6. Quality & Constraints
+Goal Strategy
+Performance (Data Ingestion) Use DB.databaseWriteExecutor to ensure high￾frequency sensor data insertion happens off the
+main thread, preventing UI freezes.
+12Performance (Filtering) Database queries are optimized using WHERE
+clauses on the indexed timestamp column.
+Dynamic observer management prevents
+conflicting asynchronous updates.
+Usability (Reactivity) LiveData ensures charts and data streams
+update automatically and smoothly, reducing
+perceived latency for the user.
+Usability (Consistency) BaseChartActivity and DatePickerHandler
+enforce consistent styling and interaction across
+the application’s filtering interface.
+1. Tech Stack Dependence: Strong dependency on Android OS, Java, AndroidX libraries (Room,
+LiveData), and the external MPAndroidChart library.
+2. Hardware Dependency: The core function of the app requires an Android device.
+7. How-To (for developers)
+7.1. Build & Run Locally
+• download app folder from git (https://github.com/FHDW-Hannover-IoT/
+BioT_Speech_IoT_App.git) (click [ main v ] )
+• configure virtual device (we used a Pixel 8a) (Device Manager/ Add a new Device / Create
+Virtual Device/ Pixel 8a/ Start (Play Button))
+• run main class MainActivity (Path: app/kotlin+java/com.fhdw.biot.speech.iot/MainActivity.java,
+start (PlayButton) first time can take 1 minute or so)
+• Android App symbol will be added to the start screen and will open automatically
+7.2. Configure (env vars, settings)
+Thread Count for Database Writes: The number of threads used for asynchronous database
+operations is configured in DB.java.
+7.3. Testing basics
+Class AndererUnitTest
+@Before
+Creates Context for the notification
+• Simulate a Notification Manager to avoid the need for hardware simulation, based on the
+context of the integrated Notification Service in Android.
+testDefineSensorEvent
+13• Creates a fixed sensor type, a value, an ID, and an axis for the notification. Additionally, use the
+current time. Finally, create an event with these results. A notification should be triggered
+immediately after the sensor event is defined, as the class is defined accordingly. Afterwards,
+the various entered values should be checked for correctness.
+testCreateNotification
+• Actively creates a notification based on Sensortype, ID, axis and a pre-defined value. The
+context is simulated. With Verify it is checked if a notification channel has been created.
+Additionally, the value, ID, axis and importance (Default) will be checked.
+
+Source: Doku.pdf
+• This allows your Android phone to connect without username/password.
+• Restart Mosquitto after saving the file.
+Allow Mosquitto in Windows Firewall
+• Open Windows Firewall → “Allow an app” → enable:
+◦ mosquitto.exe
+◦ Port 1883/TCP
+• If this is blocked, the app will fail with:
+java.net.SocketTimeoutException: failed to connect
+Find Your PC’s LAN IP
+• Run this in PowerShell or CMD:
+ipconfig
+• Look for:
+IPv4 Address : . . . : 192.168.xxx.xxx
+• Copy this IP.
+• You must put this IP in your Android code:
+private static final String PHONE_BROKER = "tcp://192.168.xxx.xxx:1883";
+• This IP must match your PC’s Wi-Fi network.
+Phone and PC Must Be on the Same Network
+• Your Android phone must be:
+◦ On Wi-Fi (same router as PC)
+◦ NOT on mobile data
+◦ NOT on guest Wi-Fi
+◦ NOT behind VPN
+◦ If networks differ → MQTT cannot communicate.
+Topic Meaning Data Format
+Sensor/Bewegung Acceleration data x,y,z
+4Sensor/Gyro Gyroscope data x,y,z
+Sensor/Zeit Timestamp string YYYY-MM-DD…
+These are the topics that the application automatically subscribes to after a successful MQTT
+connection.
+3.5. MQTT Connection Workflow
+Startup Sequence: 1. Generate a unique MQTT client ID 2. Select the correct broker URL (emulator
+vs. real device) 3. Instantiate MqttHandler 4. Register the message listener callback 5. Connect
+asynchronously to the broker
+On Successful Connection: * Subscribe to all three sensor topics (Sensor/Bewegung, Sensor/Gyro,
+Sensor/Zeit) * Publish retained initial values for testing * Load historical database entries and log
+the count
+3.6. Processing Incoming Messages
+Each topic is processed independently:
+• Sensor/Bewegung
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update accelerometer TextView
+◦ Insert values into the database
+• Sensor/Gyro
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update gyro TextView
+◦ Insert values into the database
+• Sensor/Zeit
+◦ Payload: x,y,z
+◦ Parse into float values (X/Y/Z)
+◦ Update timestamp TextView
+◦ Insert values into the database
+All UI modifications run on the main thread using runOnUiThread().
+3.7. Database Integration
+Two helper methods handle all Room database operations:
+5• storeSensor(ValueSensor sensor)
+◦ Runs in a background thread
+◦ Inserts a new row into the Room DB
+◦ Logs warnings on failure
+• loadDatabaseValues()
+◦ Runs in a background thread
+◦ Fetches all stored ValueSensor rows
+◦ Logs the total number of entries
+3.7.1. MqttHandler — Responsibilities
+MqttHandler is a wrapper for the Eclipse Paho asynchronous MQTT client. It manages:
+• Connecting
+• Automatic reconnecting
+• Subscribing
+• Publishing
+• Disconnecting
+• Forwarding incoming messages
+Asynchronous Connect
+Features:
+• Fully non-blocking
+• automaticReconnect = true
+• cleanSession = true
+Connection results are delivered via:
+• onConnected()
+• onFailure(Throwable)
+Subscription
+• Uses QoS 1 (“at least once”)
+• Logs both success and failure
+• Safe to call multiple times
+Publishing
+Supports:
+6• Normal transient messages
+• Retained messages (retained = true)
+Publishing is performed in a background thread to avoid blocking the UI.
