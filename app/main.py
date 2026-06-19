@@ -218,15 +218,6 @@ async def lifespan(app: FastAPI):
     repository.recompute_all_rollups()
     log.info("Rollup tables ready")
 
-    # 2. Seed the database with fake historical data (dev/demo — skipped when SEED_ON_STARTUP=false)
-    if settings.seed_on_startup:
-        seeder = DatabaseSeeder(
-            repository=repository,
-            hours=settings.seed_hours,
-            rng_seed=settings.seed_random_seed,
-        )
-        seeder.seed()
-        app.state.seeder = seeder
 
     # 3. Start MCP sensor server subprocess
     app.state.mcp_proc = _start_mcp_server()
